@@ -424,8 +424,15 @@ function pickMixSong(i){
   if (performance.now() - swipedAt < 350) return;
   const m = S.mix; if (!m || !m.songs[i]) return;
   ensureAudio(); sfx('key'); S.rec = null; S.mixEnd = false;
-  if (N){ if (m.playlistId && N.playAlbumAt){ S.ctxHold = performance.now() + 6000; N.playAlbumAt('spotify:playlist:' + m.playlistId, i); S.playing = true; syncKeys(); showMixTracks(i); } return; }
+  if (N){ playMixFrom(i); return; }
   S.src = {kind:'demo', title:''}; showMixTracks(i); S.t = 0; if (!S.playing) play(); syncKeys();
+}
+// Spotify plays the tape from its i-th song (from the top, the surer route: the one albums take)
+function playMixFrom(i){
+  const m = S.mix; if (!m || !N || !m.playlistId) return;
+  S.rec = null; S.mixEnd = false; S.ctxHold = performance.now() + 6000; S.expect = S.r.key || null;
+  if (i <= 0) N.playPlaylist('spotify:playlist:' + m.playlistId, ''); else N.playAlbumAt('spotify:playlist:' + m.playlistId, i);
+  S.playing = true; S.startAt = S.cmdAt = performance.now(); syncKeys(); showMixTracks(Math.max(0, i));
 }
 const shortDate = t => new Date(t).toLocaleString('en', {day:'numeric', month:'short'});
 function buildMixFold(m){

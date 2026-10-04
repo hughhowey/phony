@@ -191,7 +191,7 @@ function keyDown(k, el){
     if (S.flipped){ sfx('latch'); toSideB(); return; }
     if (S.tracks[0] && S.tracks[0].placeholder){ sfx('tick'); return; }   // a blank with nothing on it (REC records)
     // a mixtape, stopped, while Spotify is on something else: play the tape itself
-    if (S.mix && !S.playing && !S.rec && N && isRemote() && S.mix.playlistId && S.mix.songs.length && !remoteOnMix()){ sfx('latch'); pickMixSong(Math.min(S.idx, S.mix.songs.length - 1)); return; }
+    if (S.mix && !S.playing && !S.rec && N && isRemote() && S.mix.playlistId && S.mix.songs.length && !remoteOnMix()){ sfx('latch'); playMixFrom(S.mixEnd ? 0 : Math.min(S.idx, S.mix.songs.length - 1)); return; }
     if (S.playing){ pause(); sfx('pop'); } else { play(); sfx('latch'); } syncKeys(); return;
   }
   if (k === 'stop'){
@@ -476,7 +476,11 @@ function pollNative(now){
     }
   } else if (isRemote()){
     const raw = N.getRemote();
-    if (!raw){ if (++remoteMissing === 90) toast('Nothing is playing in another app. Start Spotify, then come back.'); return; }
+    if (!raw){
+      if (++remoteMissing === 90) toast('Nothing is playing in another app. Start Spotify, then come back.');
+      if (S.playing && now - S.cmdAt > 6000){ S.playing = false; syncKeys(); }   // Spotify never answered: the key pops back up
+      return;
+    }
     remoteMissing = 0;
     let st; try { st = JSON.parse(raw); } catch (e) { return; }
     const R = S.r, key = st.title + '|' + st.artist; R.last = st;
@@ -489,7 +493,7 @@ function pollNative(now){
       R.key = key; R.cur = {title:st.title, artist:st.artist, album:st.album, albumArtist:st.albumArtist || '', dur:st.dur / 1000};
       S.src.app = st.app;
       const prevAlbum = R.hist.length ? R.hist[R.hist.length - 1].album : '';
-      if (S.mix && !(st.playing && mixLeft())) mixFollow(st);
+      if (S.mix && !mixLeft(st)) mixFollow(st);
       else { judgeTape(st, prevAlbum, true); R.qsig = qsig; buildRemoteTracks(st.queue || []); }
     } else if (!S.mix && qsig !== R.qsig){
       // Spotify updates its up-next list a little after it switches; follow it
@@ -498,7 +502,7 @@ function pollNative(now){
     // cover art often arrives a moment after the track changes
     if (st.artKey !== R.artKey){ R.artKey = st.artKey; setAlbum(st.album, st.albumArtist || st.artist, st.hasArt ? N.getRemoteArt() : '', st.artKey); }
     // Spotify itself says whether it's playing an album; checked every second
-    if (now - ctxAt > 1000){ ctxAt = now; if (!S.mix || (st.playing && mixLeft())) judgeTape(st, '', false); }
+    if (now - ctxAt > 1000){ ctxAt = now; if (!S.mix || mixLeft(st)) judgeTape(st, '', false); }
     if (!S.cue) S.t = st.pos / 1000;
     if (st.dur > 0) R.cur.dur = st.dur / 1000;
     if (now - S.cmdAt > 800 && st.playing !== S.playing){ S.playing = st.playing; syncKeys(); }
@@ -515,12 +519,16 @@ function spotifySaysAlbum(album){ const cx = spotifyCtx(); return !!cx && cx.typ
  * an album gets the worn album tape. Without that answer, the old clues: the queue is named
  * after the album, or two songs in a row share one. onTrack: a new song just started.
  */
-// you started something else in Spotify: the mixtape comes out
-function mixLeft(){
-  if (!S.mix || performance.now() < S.ctxHold) return false;
-  const cx = spotifyCtx();
-  if (!cx || !cx.type || (cx.type === 'playlist' && cx.uri === mixPl(S.mix).uri)) return false;
-  S.mix = null; S.rec = null; return true;
+// you started something else in Spotify: the mixtape comes out. Spotify playing a song that isn't on
+// the tape is proof enough; its own answer (when there is one) is checked too. A paused Spotify proves nothing.
+function mixLeft(st){
+  if (!S.mix || S.rec || !st || !st.playing || performance.now() < S.ctxHold) return false;
+  const m = S.mix, cx = spotifyCtx();
+  const says = !!cx && !!cx.type && !(cx.type === 'playlist' && cx.uri === mixPl(m).uri);
+  const plays = !!st.title && !m.songs.some(s => plainSong(s.title) === plainSong(st.title));
+  if (!says && !plays) return false;
+  if (S.recOn) recOff(true);
+  S.mix = null; S.rec = null; S.taping = null; return true;
 }
 function judgeTape(st, prevAlbum, onTrack){
   // just after PHONY started something, Spotify's answer may still describe the last thing
