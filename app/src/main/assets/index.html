@@ -11,9 +11,9 @@
       <button class="key" data-k="rew" aria-label="Previous track. Hold to rewind."><span>◀◀</span></button>
       <button class="key" data-k="play" aria-label="Play or pause"><span style="letter-spacing:0">▶</span></button>
       <button class="key" data-k="ff" aria-label="Next track. Hold to fast-forward."><span>▶▶</span></button>
-      <button class="key stop" data-k="stop" aria-label="Stop. Press again to eject."><span style="letter-spacing:0">■</span></button>
+      <button class="key stop" data-k="stop" aria-label="Stop"><span style="letter-spacing:0">■</span></button>
+      <button class="key eject" data-k="eject" aria-label="Eject"><span></span></button>
     </div>
-    <div class="tiny">STOP<br>EJECT</div>
     <div class="vol">
       <div class="scale" aria-hidden="true"><span>10</span><span>5</span><span>0</span></div>
       <div class="track" role="slider" tabindex="0" aria-label="Volume" aria-valuemin="0" aria-valuemax="10" aria-valuenow="7"><div class="thumb"></div></div>
@@ -22,8 +22,8 @@
   </div>
 </template>
 <template id="fxtpl">
-  <button class="fxkey" aria-label="Tape sound: hiss and wow" aria-pressed="true"></button>
-  <div class="fxlabel"><span class="led on fxled"></span>TAPE FX</div>
+  <button class="recsw" role="switch" aria-checked="false" aria-label="Record off the radio"><span class="fxkey"></span></button>
+  <div class="fxlabel"><span class="led recled"></span>REC</div>
   <div class="jacks"><div class="jack"><i></i>1</div><div class="jack"><i></i>2</div></div>
 </template>
 
@@ -85,14 +85,15 @@
       </div></div>
       <div class="keybar">
         <div class="kb-fx">
-          <button class="fxkey" aria-label="Tape sound: hiss and wow" aria-pressed="true"></button>
-          <div class="kb-leds"><span class="led on fxled"></span><span class="tiny">FX</span><span class="led amber runled"></span><span class="tiny">RUN</span></div>
+          <button class="recsw" role="switch" aria-checked="false" aria-label="Record off the radio"><span class="fxkey"></span></button>
+          <div class="kb-leds"><span class="led recled"></span><span class="tiny">REC</span><span class="led amber runled"></span><span class="tiny">RUN</span></div>
         </div>
         <div class="keys">
           <button class="key" data-k="rew" aria-label="Previous track. Hold to rewind."><span>◀◀</span></button>
           <button class="key" data-k="play" aria-label="Play or pause"><span style="letter-spacing:0">▶</span></button>
           <button class="key" data-k="ff" aria-label="Next track. Hold to fast-forward."><span>▶▶</span></button>
-          <button class="key stop" data-k="stop" aria-label="Stop. Press again to eject."><span style="letter-spacing:0">■</span></button>
+          <button class="key stop" data-k="stop" aria-label="Stop"><span style="letter-spacing:0">■</span></button>
+          <button class="key eject" data-k="eject" aria-label="Eject"><span></span></button>
         </div>
         <div class="vol">
           <div class="scale" aria-hidden="true"><span>10</span><span>5</span><span>0</span></div>

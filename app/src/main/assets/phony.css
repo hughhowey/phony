@@ -44,6 +44,14 @@ button{-webkit-tap-highlight-color:transparent}
 .fxkey{position:relative;width:13cqw;height:5.2cqw;border:0;border-radius:1cqw;background:linear-gradient(180deg,#ffc15a,var(--orange) 55%,#d97f06);box-shadow:0 1.1cqw 0 #9a5a05,0 1.6cqw 1.6cqw rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.6);cursor:pointer;transition:transform .05s,box-shadow .05s}
 .fxkey::after{content:"";position:absolute;inset:1.1cqw 2cqw;background:repeating-linear-gradient(90deg,rgba(120,60,0,.25) 0 .5cqw,transparent .5cqw 1.1cqw);border-radius:.4cqw}
 .fxkey.down{transform:translateY(.9cqw);box-shadow:0 .2cqw 0 #9a5a05,0 .4cqw .6cqw rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.5)}
+/* the REC switch: the knob slides along a slot; red lamp beside it */
+.recsw{position:relative;flex:none;width:19.4cqw;height:7cqw;border:0;padding:0;border-radius:1.4cqw;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.3));box-shadow:inset 0 .35cqw .7cqw rgba(0,0,0,.75),0 1px 0 rgba(255,255,255,.14);cursor:pointer;touch-action:manipulation}
+.recsw .fxkey{position:absolute;display:block;left:.7cqw;top:.9cqw;transition:left .16s cubic-bezier(.3,.9,.4,1.1),transform .05s,box-shadow .05s}
+.recsw.on .fxkey{left:5.7cqw}
+.recsw::before{content:"";position:absolute;left:1.2cqw;right:1.2cqw;bottom:.55cqw;height:1px;background:rgba(255,255,255,.1)}
+.key.eject span{top:0;height:100%}
+.key.eject span::before{content:"";position:absolute;left:50%;top:1.9cqw;width:0;height:0;margin-left:-2.4cqw;border-left:2.4cqw solid transparent;border-right:2.4cqw solid transparent;border-bottom:3cqw solid currentColor}
+.key.eject span::after{content:"";position:absolute;left:50%;top:5.5cqw;width:4.8cqw;height:1cqw;margin-left:-2.4cqw;background:currentColor;border-radius:.2cqw}
 .fxlabel{display:flex;align-items:center;gap:1.4cqw;font-family:var(--f-device);font-size:1.9cqw;letter-spacing:.14em;color:rgba(222,230,244,.8);margin-left:2.6cqw;margin-right:auto}
 .led{width:1.7cqw;height:1.7cqw;border-radius:50%;background:#4a1810;box-shadow:inset 0 1px 1px rgba(0,0,0,.6);flex:none}
 .led.on{background:var(--led);box-shadow:0 0 1.4cqw var(--led),0 0 .4cqw #ffb09a}
@@ -101,8 +109,13 @@ button{-webkit-tap-highlight-color:transparent}
 .deckfull::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(70cqw 90cqw at calc(var(--lx) - 40%) var(--ly),rgba(255,255,255,.14),transparent 70%);mix-blend-mode:screen}
 .keybar{position:relative;flex:none;display:flex;align-items:center;justify-content:space-between;gap:2.6cqw;padding:2.6cqw 3.6cqw 4cqw;border-radius:1.6cqw;background-color:#b9bec3;background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.08) 0 1px,transparent 1px 3px),linear-gradient(180deg,#d9dde0,#c1c6ca 55%,#8f959b);box-shadow:0 1cqw 2cqw rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.7)}
 .keybar .keys{flex-direction:row;gap:2cqw}
-.keybar .key{width:12.6cqw;height:11.4cqw}
+.keybar .keys{gap:1.6cqw}
+.keybar .key{width:10.2cqw;height:11.4cqw}
+.keybar .recsw{width:16.6cqw}
+.keybar .recsw.on .fxkey{left:2.9cqw}
 .keybar .key span{top:1.4cqw;font-size:4cqw}
+.keybar .key.eject span::before{top:1.6cqw;margin-left:-2.1cqw;border-left-width:2.1cqw;border-right-width:2.1cqw;border-bottom-width:2.6cqw}
+.keybar .key.eject span::after{top:4.8cqw;width:4.2cqw;margin-left:-2.1cqw}
 .keybar .vol{height:15cqw}
 .kb-fx{display:flex;flex-direction:column;align-items:flex-start;gap:1.8cqw}
 .kb-leds{display:flex;align-items:center;gap:1cqw}

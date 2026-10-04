@@ -29,6 +29,10 @@ Spotify lets a development-mode app serve five accounts, and signs you out after
 
 PHONY has a bunch of shells. There's no menu to find them. Each shell hides a spot somewhere on its face; press and hold it for about a second and the next shell snaps on. A quick tap does nothing. Whatever shell you stick with will always open up with it already on.
 
+## The keys
+
+◀◀ ▶ ▶▶ ■ ⏏, and the REC switch (top left when closed, left of the keys when open). ▶ plays (and pauses). ■ stops whatever is running: the tape, a recording, the radio. ⏏ pops the tape out and the tape box is underneath; press it again (or tap the player) and the tape goes back in. ◀◀ and ▶▶ skip a song; hold them to wind. Slide REC and the blank tape goes in by itself and records whatever is on the radio (below). That's all of them.
+
 ## Music
 
 Tap the title at the top of the J-card (open view) to choose:
@@ -38,7 +42,7 @@ Tap the title at the top of the J-card (open view) to choose:
 
 ## The tape box
 
-Press **■** while the tape is stopped to eject it. Closed, the player slides up and the tape box is underneath; open, the J-card slides away and the box is behind it. The box holds the albums saved in your Spotify library, ten to a box, oldest release year first (same year: by artist). Tap a spine to take the case out, tap the case to load the tape, and Spotify plays that album. Save or remove an album in Spotify and the box will appear or disappear.
+Press **⏏** to eject the tape. Closed, the player slides up and the tape box is underneath; open, the J-card slides away and the box is behind it. The box holds the albums saved in your Spotify library, ten to a box, oldest release year first (same year: by artist). Tap a spine to take the case out, tap the case to load the tape, and Spotify plays that album. Save or remove an album in Spotify and the box will appear or disappear.
 
 The first time, tap the note in the box to sign in to Spotify (once, in the browser). The first album you play asks Spotify's permission once too. You need Spotify Premium and the Spotify app on the phone. (You can use the app without Spotify, but I made this for myself, so that's what I went with for me. It's open source, so feel free to take this idea and go wild with it. I might even switch to your app!)
 
@@ -50,15 +54,15 @@ Under the boxes is a drawer of playlist tapes: your twenty most recently played 
 
 ## The dial
 
-Three shells have a radio in them: the silver radio recorder, the shoebox recorder and the all-weather one. Drag the needle along the FM dial and you get static, then a station: real ones, playing live through PHONY (WFMU, KEXP, KCRW's Eclectic 24, Radio Paradise, and a run of SomaFM channels, from Underground 80s to Secret Agent). The lamp on the dial lights when a station is locked in. The tape waits while the radio plays; ◀◀ and ▶▶ step from station to station, ■ switches the radio off, and ▶ is back to the tape where it left off. The banner on the J-card shows the station and whatever it says is playing. Every song a station names goes "on the radio" for the blank tape, below. The streams are the stations' own, for personal listening; the list is at the top of `js/radio.js` if you want other stations on your dial. The radio needs a signal.
+Three shells have a radio in them: the silver radio recorder, the shoebox recorder and the all-weather one. Drag the needle along the FM dial and you get static, then a station: real ones, playing live through PHONY (WFMU, KEXP, KCRW's Eclectic 24, Radio Paradise, and a run of SomaFM channels, from Underground 80s to Secret Agent). The lamp on the dial lights when a station is locked in. The tape waits while the radio plays; ◀◀ and ▶▶ step from station to station, ■ switches the radio off, and ▶ is back to the tape where it left off. While the radio is on, the J-card is the station's log: the banner shows what it says is playing, and the list fills with what it has played since you tuned in. Tap a song that's gone by and it's "on the radio" for the blank tape, below, as if you'd Shazamed it. Slide REC with the radio on and the blank goes in and tapes the air: each song goes on the tape as the station finishes it, the one playing when you slid the switch included, until you press ■ or the tape is full. The streams are the stations' own, for personal listening; the list is at the top of `js/radio.js` if you want other stations on your dial. The radio needs a signal.
 
 ## The radio and the blank tape
 
 Hear a song you love out in the world, record it with Shazam, and it goes "on the radio": up to three songs wait there (a fourth pushes the oldest off). PHONY catches them three ways: Shazam's notification, Shazam's **Share** button pointed at PHONY, or Shazam's own "My Shazam Tracks" playlist in Spotify if Shazam is linked to Spotify.
 
-A special blank tape sits at the top of the drawer with a red REC sticker. Put it in and it plays the oldest song waiting. Only a full listen records it: pause and wind back all you like, but skip it or wind forward and it's gone for good. After each song the tape stops. If more are waiting it records the next. A blank holds 90 minutes (45 a side). Play it any time like any other tape; stopped at the end of what's on it, ▶ records whatever's waiting.
+A special blank tape sits at the top of the drawer with a red REC sticker. Slide **REC** and the blank goes into the player (whatever was in comes out) and the oldest song waiting plays through from Spotify: that's the recording. Only a full listen puts it on the tape: pause and wind back all you like, but skip it or wind forward and it's gone for good. After each song the next one waiting records; when nothing is waiting the tape sits with REC down, and the next song you catch records as it comes in. ■ stops a recording (the song stays on the radio for next time). A blank holds 90 minutes (45 a side). Play it any time like any other tape.
 
-When it's full, press **■** and write its name on the spine with the pencil (**RUB OUT** turns the pencil over). It goes into the MY TAPES box, spine out, and a fresh blank drops into the drawer. Each tape is a private playlist in Spotify too!
+When it's full, press **⏏** and write its name on the spine with the pencil (**RUB OUT** turns the pencil over). It goes into the MY TAPES box, spine out, and a fresh blank drops into the drawer. A tape doesn't have to be full to be finished: press ⏏, then press and hold the popped-out tape, and the pencil comes out. Each tape is a private playlist in Spotify too!
 
 A mixtape's J-card has your writing on the spine, the songs with where and when you heard each one, sleeve notes pairing each song with the photo you took nearest that moment and a few lines about the artist, the words, and its ports of call. Photos stay on the phone.
 
@@ -72,7 +76,7 @@ Press and hold a finished tape's case in the MY TAPES box and PHONY offers three
 
 ## Sides
 
-An album plays like a cassette: Side A is the first half of the songs. When Side A runs out the tape stops; press **■** to flip it and **▶** to play Side B. The silver digital shell has auto reverse and carries on by itself. Super fancy.
+An album plays like a cassette: Side A is the first half of the songs. When Side A runs out the tape stops; press **⏏** to flip it and **▶** to play Side B. The silver digital shell has auto reverse and carries on by itself. Super fancy.
 
 ## The pencil trick
 

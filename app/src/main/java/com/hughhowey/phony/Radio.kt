@@ -40,8 +40,10 @@ class Radio private constructor(private val ctx: Context) {
     @Volatile var onAirArtist = ""; private set
     @Volatile var onAirAt = 0L; private set
     private var lastRaw = ""
+    /** What the station has played since it was tuned in: the J-card's log while the radio is on. */
+    private val airLog = mutableListOf<JSONObject>()
 
-    /** A station's "Artist - Title" line. Real songs (with an artist) go on the radio for the blank tape; station idents don't. */
+    /** A station's "Artist - Title" line. Real songs (with an artist) go in the log; station idents don't. */
     fun onAir(raw: String) {
         val s = raw.trim()
         if (s == lastRaw) return
@@ -50,11 +52,21 @@ class Radio private constructor(private val ctx: Context) {
         onAirArtist = if (cut > 0) s.substring(0, cut).trim() else ""
         onAirTitle = if (cut > 0) s.substring(cut + 3).trim() else s
         onAirAt = System.currentTimeMillis()
-        if (onAirTitle.isNotEmpty() && onAirArtist.isNotEmpty()) heard(onAirTitle, onAirArtist, "radio")
+        if (onAirTitle.isNotEmpty() && onAirArtist.isNotEmpty()) synchronized(airLog) {
+            airLog.add(JSONObject().put("title", onAirTitle).put("artist", onAirArtist).put("at", onAirAt))
+            while (airLog.size > 40) airLog.removeAt(0)
+        }
         onChange?.invoke()
     }
 
-    fun onAirJson(): String = JSONObject().put("title", onAirTitle).put("artist", onAirArtist).put("at", onAirAt).toString()
+    /** A new station, or the radio off: nothing on the air. */
+    fun clearAir() {
+        lastRaw = ""; onAirTitle = ""; onAirArtist = ""; onAirAt = 0L
+        synchronized(airLog) { airLog.clear() }
+    }
+
+    fun onAirJson(): String = JSONObject().put("title", onAirTitle).put("artist", onAirArtist).put("at", onAirAt)
+        .put("log", synchronized(airLog) { JSONArray(airLog.toList()) }).toString()
 
     @Synchronized private fun list(): MutableList<JSONObject> {
         val a = try { JSONArray(waitingJson()) } catch (e: Exception) { JSONArray() }

@@ -407,6 +407,7 @@ class MainActivity : ComponentActivity() {
         // ----- the real radio: a station streams through PHONY's own player -----
         @JavascriptInterface fun tuneRadio(url: String, name: String) = onMain {
             remote.enabled = false
+            radio.clearAir()
             NowLoaded.key = "radio:$url"; NowLoaded.tracks = null
             val uri = android.net.Uri.parse(url)
             val item = MediaItem.Builder().setMediaId("radio").setUri(uri)
@@ -414,17 +415,25 @@ class MainActivity : ComponentActivity() {
                 .setMediaMetadata(MediaMetadata.Builder().setTitle(name).setArtist("On the radio").build()).build()
             controller?.run { setMediaItem(item); prepare(); play() }
         }
-        @JavascriptInterface fun radioOff() = onMain { controller?.run { stop(); clearMediaItems() }; NowLoaded.key = ""; NowLoaded.tracks = null }
-        /** What the station says is playing: {title, artist, at}. */
+        @JavascriptInterface fun radioOff() = onMain { controller?.run { stop(); clearMediaItems() }; NowLoaded.key = ""; NowLoaded.tracks = null; radio.clearAir() }
+        /** What the station says is playing, and what it has played since: {title, artist, at, log:[{title, artist, at}]}. */
         @JavascriptInterface fun onAir(): String = radio.onAirJson()
+        /** A song that ended on the air with REC down: find it on Spotify (and note where the phone is), then phonyFound(id, {uri, title, artist, album, dur, place, lat, lon} or null). */
+        @JavascriptInterface fun findSong(id: String, title: String, artist: String) {
+            Thread {
+                val hit = try { box.findTrack(title, artist) } catch (e: Exception) { null }
+                if (hit != null) try { places.here().takeIf { it.isNotEmpty() }?.let { org.json.JSONObject(it) }?.let { h -> hit.put("lat", h.optDouble("lat")).put("lon", h.optDouble("lon")).put("place", h.optString("place")) } } catch (e: Exception) { }
+                js("window.phonyFound && window.phonyFound(${org.json.JSONObject.quote(id)}, ${if (hit == null) "null" else org.json.JSONObject.quote(hit.toString())})")
+            }.start()
+        }
 
         // ----- the radio and the blank tape -----
         /** Songs heard and waiting for the blank tape: [{key, title, artist, uri, dur, album, at, lat, lon, place, how}]. */
         @JavascriptInterface fun radioWaiting(): String = radio.waitingJson()
         @JavascriptInterface fun radioDrop(key: String) = radio.drop(key)
         @JavascriptInterface fun radioNotice(): String = org.json.JSONObject().put("id", radio.noticeId).put("text", radio.notice).toString()
-        /** Test hook: put a song on the radio by name. */
-        @JavascriptInterface fun radioHeard(title: String, artist: String) = radio.heard(title, artist, "test")
+        /** A song from the station's log, tapped on the J-card: it's "on the radio", waiting for the blank. */
+        @JavascriptInterface fun radioHeard(title: String, artist: String) = radio.heard(title, artist, "air")
         @JavascriptInterface fun playTrack(uri: String, title: String) = onMain {
             box.play(uri, title) { ok, msg -> js("window.phonyPlayed && window.phonyPlayed($ok, ${org.json.JSONObject.quote(msg)})") }
         }

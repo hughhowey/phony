@@ -7,10 +7,11 @@ const store = {
 
 /* ---------- state ---------- */
 // src.kind: demo (silent sample) · files (picked in a browser) · local (phone library) · remote (another app, e.g. Spotify)
-const S = {tape:store.get('tape', 0), userTape:store.get('tape', 0), tracks:DEMO.slice(), idx:0, t:0, playing:false, cue:0, fx:store.get('fx', true), vol:store.get('vol', .7),
+const S = {tape:store.get('tape', 0), userTape:store.get('tape', 0), tracks:DEMO.slice(), idx:0, t:0, playing:false, cue:0, fx:true, vol:store.get('vol', .7),
   motor:0, dispP:0, a1:0, a2:0, cOff:0, ejected:false, ej:0, src:{kind:'demo', title:'For the boat'}, startAt:0, open:false, mode:'cover', cmdAt:0, albumMode:false,
   r:{key:'', cur:null, hist:[], done:0, artKey:'', queue:[]}};
 S.tape = PL_TAPE; S.ctxHold = 0; S.expect = null;
+S.recOn = false; S.taping = null; S.booting = true;   // REC switch; the song on the air being taped; start-up (tapes go in without a sound)
 // Whatever isn't an album plays on a written tape. A drawer playlist brings its own; anything
 // else (Liked Songs, a radio station, songs on the phone) gets one named after it, kept for next time.
 function pseudoPl(uri, name){ name = name || 'Off the radio'; return {id:'x:' + (uri || name.trim().toLowerCase()), uri:uri || '', name, pseudo:true}; }
@@ -84,7 +85,7 @@ function ensureAudio(){
   hissGain = ac.createGain(); hissGain.gain.value = 0; loop().connect(hp).connect(hissGain).connect(master);
   windBP = ac.createBiquadFilter(); windBP.type = 'bandpass'; windBP.Q.value = 3; windBP.frequency.value = 900;
   windGain = ac.createGain(); windGain.gain.value = 0; loop().connect(windBP).connect(windGain).connect(sfxBus);
-  lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = S.fx ? 11000 : 20000;
+  lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 11000;
   try { ac.createMediaElementSource(audio).connect(lp).connect(master); audio._wired = true; } catch (e) {}
 }
 function sfx(type){
@@ -145,10 +146,17 @@ function endOfSide(){ pause(); S.cue = 0; S.idx = S.tracks.length - 1; S.t = dur
 audio.addEventListener('ended', () => next());
 
 function eject(){
+  if (S.recOn) recOff(true);
   // a full blank comes out to be named
   if (S.mix && S.mix === BLANK && S.mix.full && !S.rec){ pause(); S.ejected = true; sfx('eject'); syncKeys(); const m = S.mix; setTimeout(() => openNamer(m), 450); return; }
   pause(); S.ejected = true; sfx('eject'); syncKeys();
   setTimeout(() => { if (S.ejected) showBox(); }, 330);
+}
+// ⏏: the tape comes out (the box is underneath); pressed again, it goes back in; at the end of Side A, it flips
+function ejectKey(){
+  if (S.ejected){ putBack(); return; }
+  if (S.sideEnd){ flipTape(); return; }
+  eject();
 }
 let swapTimer = 0;
 function insert(i){
@@ -161,6 +169,7 @@ function swapTo(i, keepPlaying, force){
   ensureAudio();
   if (i < ALBUM_TAPE){ S.userTape = i; store.set('tape', i); }
   if (S.ejected){ insert(i); return; }
+  if (S.booting){ S.tape = i; refreshShells(); tapeChanged(); return; }
   if (i === S.tape && !force) return;
   const was = S.playing && keepPlaying;
   if (!keepPlaying) pause();
@@ -173,25 +182,28 @@ function syncKeys(){ $$('.key[data-k=play]').forEach(k => k.classList.toggle('la
 let holdTimer = null, holding = false;
 function keyDown(k, el){
   ensureAudio(); el.classList.add('down');
-  if (S.radio){   // on the radio: ▶ is back to the tape, ■ switches the radio off, ◀◀ ▶▶ step through the stations
-    if (k === 'play'){ sfx('latch'); radioOff(); play(); syncKeys(); }
-    else if (k === 'stop'){ sfx('key'); radioOff(); }
+  if (k === 'eject'){ sfx('key'); ejectKey(); return; }
+  if (S.radio){   // on the radio: ■ stops a recording, then the radio; ▶ is back to the tape; ◀◀ ▶▶ step through the stations
+    if (k === 'play'){ if (S.recOn){ sfx('tick'); return; } sfx('latch'); radioOff(); play(); syncKeys(); }
+    else if (k === 'stop'){ sfx('key'); if (S.recOn) recOff(true); else radioOff(); }
     else { sfx('key'); stepStation(k === 'ff' ? 1 : -1); }
     return;
   }
   if (k === 'play'){
     if (S.ejected || S.sideEnd) { sfx('tick'); return; }
     if (S.flipped){ sfx('latch'); toSideB(); return; }
-    // a blank with nothing on it: play records whatever's on the radio
-    // the blank, stopped at the end of what's on it: play records whatever's waiting on the radio
-    if (S.mix && !S.rec && !S.playing && (S.mixEnd || (S.tracks[0] && S.tracks[0].placeholder))){
-      readRadio(); const w = ready()[0];
-      if (w && S.mix === BLANK && !S.mix.full){ startRecording(w); return; }
-      if (S.tracks[0] && S.tracks[0].placeholder){ sfx('tick'); return; }
-    }
+    if (S.tracks[0] && S.tracks[0].placeholder){ sfx('tick'); return; }   // a blank with nothing on it (REC records)
+    // a mixtape, stopped, while Spotify is on something else: play the tape itself
+    if (S.mix && !S.playing && !S.rec && N && isRemote() && S.mix.playlistId && S.mix.songs.length && !remoteOnMix()){ sfx('latch'); pickMixSong(Math.min(S.idx, S.mix.songs.length - 1)); return; }
     if (S.playing){ pause(); sfx('pop'); } else { play(); sfx('latch'); } syncKeys(); return;
   }
-  if (k === 'stop'){ sfx('key'); if (S.ejected) insert(S.tape); else if (S.sideEnd) flipTape(); else if (S.playing || S.cue) { pause(); S.cue = 0; syncKeys(); } else eject(); return; }
+  if (k === 'stop'){
+    if (S.ejected){ sfx('tick'); return; }
+    sfx('key');
+    if (S.rec || (S.recOn && !S.playing && !S.cue)){ recOff(true); return; }   // the recording stops; the song stays on the radio
+    if (S.playing || S.cue){ pause(); S.cue = 0; syncKeys(); }
+    return;
+  }
   if (S.ejected){ sfx('tick'); return; }
   sfx('key'); holding = false; clearTimeout(holdTimer);
   holdTimer = setTimeout(() => { holding = true; if (S.sideEnd || S.flipped){ if (k === 'ff') return; unEnd(); } S.cue = k === 'ff' ? 1 : -1; S.cueBase = null; }, 320);
@@ -212,20 +224,21 @@ $$('.key').forEach(el => {
   el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat){ e.preventDefault(); keyDown(k, el); } });
   el.addEventListener('keyup', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); keyUp(k, el); } });
 });
-function applyFx(){
-  $$('.fxled').forEach(l => l.classList.toggle('on', S.fx)); $$('.fxkey').forEach(b => b.setAttribute('aria-pressed', S.fx));
-  if (lp) lp.frequency.setTargetAtTime(S.fx ? 11000 : 20000, ac.currentTime, .05);
-  if (N && !S.fx) N.setSpeed(1);
+function applyFx(){ if (lp) lp.frequency.setTargetAtTime(11000, ac.currentTime, .05); }
+function syncRec(){
+  $$('.recsw').forEach(b => { b.classList.toggle('on', S.recOn); b.setAttribute('aria-checked', S.recOn); });
+  $$('.recled').forEach(l => l.classList.toggle('on', S.recOn));
 }
-function toggleFx(){ ensureAudio(); S.fx = !S.fx; store.set('fx', S.fx); sfx('fx'); applyFx(); }
-$$('.fxkey').forEach(fk => {
-  fk.addEventListener('pointerdown', e => { e.preventDefault(); fk.classList.add('down'); toggleFx(); });
-  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => fk.addEventListener(ev, () => fk.classList.remove('down')));
-  fk.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); fk.classList.add('down'); toggleFx(); setTimeout(() => fk.classList.remove('down'), 90); } });
+$$('.recsw').forEach(sw => {
+  const knob = sw.querySelector('.fxkey');
+  sw.addEventListener('pointerdown', e => { e.preventDefault(); knob.classList.add('down'); ensureAudio(); S.recOn ? recOff() : recOn(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => sw.addEventListener(ev, () => knob.classList.remove('down')));
+  sw.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); ensureAudio(); S.recOn ? recOff() : recOn(); } });
 });
 document.addEventListener('keydown', e => {
   if (e.target.closest('button,input,[role=slider]')) return;
-  const map = {' ':'play', ArrowRight:'ff', ArrowLeft:'rew', e:'stop'}; const k = map[e.key]; if (!k || e.repeat) return;
+  if (e.key === 'r' && !e.repeat){ e.preventDefault(); ensureAudio(); S.recOn ? recOff() : recOn(); return; }
+  const map = {' ':'play', ArrowRight:'ff', ArrowLeft:'rew', s:'stop', e:'eject'}; const k = map[e.key]; if (!k || e.repeat) return;
   e.preventDefault(); const el = [...document.querySelectorAll(`.key[data-k="${k}"]`)].find(x => x.offsetParent); if (!el) return;
   keyDown(k, el); setTimeout(() => keyUp(k, el), 110);
 });
@@ -307,6 +320,7 @@ function drawWin(o){
 /* ---------- J-card ---------- */
 const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function renderJList(){
+  if (S.radio && typeof renderAirList === 'function'){ renderAirList(); return; }
   const ol = $('#jlist'); ol.innerHTML = '';
   S.tracks.forEach((tr, i) => {
     const li = document.createElement('li'); if (i === S.idx) li.className = 'cur';
@@ -331,6 +345,7 @@ function renderJList(){
   });
 }
 function markJList(){
+  if (S.radio) return;
   $$('#jlist li').forEach((li, i) => li.classList.toggle('cur', i === S.idx));
   const cur = $('#jlist li.cur'); if (cur && S.open) cur.scrollIntoView({block:'nearest', behavior:'smooth'});
 }
@@ -343,14 +358,14 @@ function trackChanged(){
   $('#nowlabel').textContent = isRemote() ? `NOW PLAYING · ${S.src.app || 'ANOTHER APP'}`.toUpperCase() : (sidesOn() ? `NOW PLAYING · ${S.side}${S.idx - (S.side === 'B' ? half() : 0) + 1}` : `NOW PLAYING · ${tapeAt(S.tape).printed ? 'A' : 'TRACK '}${S.idx + 1}`);
   if (S.mix){
     const m = S.mix;
-    $('#nowlabel').textContent = S.rec ? '● RECORDING OFF THE RADIO' : m === BLANK && m.full ? 'TAPE FULL · PRESS ■ TO NAME IT' : (S.tracks[0] && S.tracks[0].placeholder) ? 'BLANK TAPE' : `MIXTAPE Nº ${m.n} · TRACK ${S.idx + 1}`;
+    $('#nowlabel').textContent = S.rec ? '● RECORDING OFF THE RADIO' : m === BLANK && m.full ? 'TAPE FULL · ⏏ TO NAME IT' : S.recOn && m === BLANK ? '● REC · NOTHING ON THE RADIO' : (S.tracks[0] && S.tracks[0].placeholder) ? 'BLANK TAPE' : `MIXTAPE Nº ${m.n} · TRACK ${S.idx + 1}`;
     if (foldOpen) buildMixFoldSoon();
   }
   if (S.sideEnd) $('#nowlabel').textContent = 'END OF SIDE A · PRESS ■ TO FLIP';
   else if (S.flipped) $('#nowlabel').textContent = 'SIDE B · PRESS ▶';
   if (S.radio){   // the tape waits; the banner is the station's
     const st = S.radio, oa = S.onAir;
-    $('#nowlabel').textContent = `ON THE AIR · ${st.f.toFixed(1)} FM` + (S.radioPlaying ? '' : ' · TUNING…');
+    $('#nowlabel').textContent = (S.taping ? '● RECORDING OFF THE AIR · ' : 'ON THE AIR · ') + `${st.f.toFixed(1)} FM` + (S.radioPlaying ? '' : ' · TUNING…');
     $('#nowtitle').textContent = oa ? oa.title : st.name; $('#nowartist').textContent = oa ? oa.artist : st.where;
   }
   if (foldOpen) foldTrackChanged();
@@ -374,6 +389,24 @@ function tapeChanged(){
     mt.style.fontFamily = pen && !pen.dark ? pen.font : ''; mt.style.color = pen && !pen.dark ? pen.color : ''; mt.style.fontSize = pen && !pen.dark ? (8.4 * pen.k * .8).toFixed(2) + 'cqw' : '';
   }
   trackChanged();
+  if (!S.booting) rememberTape();
+}
+/* ---------- the tape you left in is the tape you find ----------
+   Spotify takes a moment (or, with no signal, forever) to say what it's playing; until it does,
+   the tape in the player is the one that was in when PHONY was last open. */
+function rememberTape(){
+  if (!N || !isRemote()) return;
+  const t = S.mix ? {kind:'mix', id:S.mix.id} : S.albumMode ? {kind:'album', title:ALBUM.title, artist:ALBUM.artist} : S.playlist && !S.playlist.pseudo ? {kind:'playlist', id:S.playlist.id} : {kind:'plain', name:S.playlist ? S.playlist.name : ''};
+  store.set('lastTape', t);
+}
+function restoreTape(){
+  const t = store.get('lastTape', null); if (!t || !isRemote()) return;
+  if (t.kind === 'album' && t.title){ ALBUM.title = t.title; ALBUM.artist = t.artist || ''; ALBUM.key = ''; ALBUM.img = null; S.albumMode = true; S.playlist = null; S.tape = ALBUM_TAPE; }
+  else if (t.kind === 'playlist'){ const pl = PLAYLISTS.find(p => p.id === t.id); if (!pl) return; S.playlist = pl; S.albumMode = false; S.tape = PL_TAPE; }
+  else if (t.kind === 'mix'){ const m = mixById(t.id); if (!m) return; setMix(m); S.tape = PL_TAPE; S.tracks = mixTracks(m); S.idx = Math.max(0, S.tracks.length - 1); if (!S.tracks.length) showMixTracks(0); }
+  else if (t.kind === 'plain' && t.name){ S.playlist = pseudoPl('', t.name); S.albumMode = false; S.tape = PL_TAPE; }
+  else return;
+  refreshShells(); renderJList(); tapeChanged();
 }
 const drums = $$('.drum > div');
 drums.forEach(d => { d.innerHTML = Array.from({length:11}, (_, i) => `<span>${i % 10}</span>`).join(''); });
@@ -452,7 +485,7 @@ function pollNative(now){
       R.key = key; R.cur = {title:st.title, artist:st.artist, album:st.album, albumArtist:st.albumArtist || '', dur:st.dur / 1000};
       S.src.app = st.app;
       const prevAlbum = R.hist.length ? R.hist[R.hist.length - 1].album : '';
-      if (S.mix && !mixLeft()) mixFollow(st);
+      if (S.mix && !(st.playing && mixLeft())) mixFollow(st);
       else { judgeTape(st, prevAlbum, true); R.qsig = qsig; buildRemoteTracks(st.queue || []); }
     } else if (!S.mix && qsig !== R.qsig){
       // Spotify updates its up-next list a little after it switches; follow it
@@ -461,7 +494,7 @@ function pollNative(now){
     // cover art often arrives a moment after the track changes
     if (st.artKey !== R.artKey){ R.artKey = st.artKey; setAlbum(st.album, st.albumArtist || st.artist, st.hasArt ? N.getRemoteArt() : '', st.artKey); }
     // Spotify itself says whether it's playing an album; checked every second
-    if (now - ctxAt > 1000){ ctxAt = now; if (!S.mix || mixLeft()) judgeTape(st, '', false); }
+    if (now - ctxAt > 1000){ ctxAt = now; if (!S.mix || (st.playing && mixLeft())) judgeTape(st, '', false); }
     if (!S.cue) S.t = st.pos / 1000;
     if (st.dur > 0) R.cur.dur = st.dur / 1000;
     if (now - S.cmdAt > 800 && st.playing !== S.playing){ S.playing = st.playing; syncKeys(); }
@@ -495,7 +528,7 @@ function judgeTape(st, prevAlbum, onTrack){
   if (cx && cx.type === 'album' && sameName(cx.album, st.album)){ setAlbumMode(true); return; }
   if (cx && cx.type && cx.type !== 'album'){ setPlaylist(ctxPlaylist(cx, st)); return; }
   if (hold) return;
-  const albumish = !!st.album && (sameName(st.queueTitle, st.album) || (onTrack && sameName(prevAlbum, st.album)) || (!!S.boxAlbum && sameName(S.boxAlbum.title, st.album)));
+  const albumish = !!st.album && (sameName(st.queueTitle, st.album) || (onTrack && sameName(prevAlbum, st.album)) || (!!S.boxAlbum && sameName(S.boxAlbum.title, st.album)) || (S.albumMode && sameName(ALBUM.title, st.album)));
   if (albumish){ setAlbumMode(true); return; }
   if (!onTrack || cx) return;
   // no word from Spotify: go by the name it gives the queue
@@ -555,7 +588,7 @@ function albumUriFor(album){
 }
 
 function chooseSource(src, restoring, keepTape){
-  if (!restoring){ pause(); syncKeys(); } S.cue = 0; newTape();
+  if (!restoring){ pause(); syncKeys(); if (S.radio) radioOff(); if (S.recOn) recOff(true); } S.cue = 0; newTape();
   S.r = {key:'', cur:null, hist:[], done:0, artKey:'', queue:[]};
   S.albumMode = false; S.playlist = null; S.mix = null; S.rec = null;
   if (src.kind === 'remote'){
@@ -757,7 +790,7 @@ function loop(now){
   // never zero: the first frame's time can equal the clock read while the scripts loaded, and 0/0 would poison the reels
   const dt = Math.max(.001, Math.min(.05, (now - last) / 1000)); last = now;
   S.ej += ((S.ejected ? 1 : 0) - S.ej) * Math.min(1, dt * 9);
-  const moving = (S.playing || S.cue) && !S.ejected;
+  const moving = (S.playing || S.cue || S.taping) && !S.ejected;
   S.motor += ((moving ? 1 : 0) - S.motor) * Math.min(1, dt * (moving ? 14 : 20));
   pollNative(now); if (typeof pollRadio === 'function') pollRadio(now);
   followPhoneVolume(now);
@@ -769,7 +802,7 @@ function loop(now){
     if (isRemote()) S.t = Math.max(0, Math.min(S.t, dur(S.idx) - 1));
   } else if (S.playing && !S.ejected){
     if (S.src.kind === 'demo') S.t += dt * S.motor; else if (S.src.kind === 'files') S.t = audio.currentTime || 0;
-  }
+  } else if (S.taping && !S.ejected) S.t += dt;
   if (S.rec){
     if (S.cue > 0) S.rec.spoiled = true;
     const d = dur(S.idx);
@@ -794,9 +827,9 @@ function loop(now){
     const t = ac.currentTime;
     windGain.gain.setTargetAtTime(Math.max(0, Math.min(1, (mult - 1.6) / 9)) * .07, t, .04);
     windBP.frequency.setTargetAtTime(500 + mult * 110, t, .05);
-    hissGain.gain.setTargetAtTime(S.fx && S.playing && !S.ejected ? .016 : 0, t, .05);
+    hissGain.gain.setTargetAtTime((S.playing || S.taping) && !S.ejected ? .016 : 0, t, .05);
   }
-  if (now - rateTick > (isLocal() ? 400 : 150) && S.fx && S.playing && !S.cue){
+  if (now - rateTick > (isLocal() ? 400 : 150) && S.playing && !S.cue){
     rateTick = now;
     const ramp = Math.min(1, .92 + (now - S.startAt) / 3000);
     const rate = ramp * (1 + .0025 * Math.sin(now / 1000 * TAU * .55));
@@ -808,7 +841,7 @@ function loop(now){
   face.classList.toggle('spinning', S.motor > .5); updateLcd(now);
   if (S.open || slab()){
     updateCounter();
-    if (now - timeTick > 250){ timeTick = now; $('#nowtime').textContent = `${fmt(Math.max(0, S.t))} / ${fmt(dur(S.idx))}`; }
+    if (now - timeTick > 250){ timeTick = now; $('#nowtime').textContent = S.radio ? (S.onAir && S.onAir.at ? fmt(Math.max(0, (Date.now() - S.onAir.at) / 1000)) : '') : `${fmt(Math.max(0, S.t))} / ${fmt(dur(S.idx))}`; }
     if (foldOpen) syncWords();
   }
   notePort(now);

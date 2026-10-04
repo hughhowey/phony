@@ -57,7 +57,7 @@ function openDub(m){
   cancel.addEventListener('click', () => { ensureAudio(); sfx('tick'); close(); });
 }
 async function sendDub(m, shell){
-  const songs = m.songs.map(s => ({t:s.title, a:s.artist, d:Math.round(s.dur || 0), p:(s.heard && s.heard.place) || '', at:(s.heard && s.heard.at) || s.rec || 0}));
+  const songs = m.songs.map(s => ({t:s.title, a:s.artist, d:Math.round(s.dur || 0), p:(s.heard && s.heard.place) || '', o:(s.heard && s.heard.on) || '', at:(s.heard && s.heard.at) || s.rec || 0}));
   const strokes = (m.strokes || []).map(st => thinStroke(st, .012));
   const payload = {v:1, id:m.playlistId || 'demo', n:m.n, from:owner() || 'A friend', shell, s:strokes, songs, at0:m.started || 0, at1:m.ended || 0};
   const packed = await packDub(payload);
@@ -80,7 +80,7 @@ async function takeDubs(){
       if (DUBS.find(d => d.playlistId === p.id)) continue;
       const d = DESIGNS.findIndex(x => x.id === p.shell), rec = Date.now();
       DUBS.unshift({id:'dub:' + p.id, playlistId:p.id, from:p.from || '', d:d < 0 ? DESIGNS.findIndex(x => x.id === 'friend') : d, strokes:p.s || [], n:p.n || 1, dub:true, received:rec,
-        started:p.at0 || rec, ended:p.at1 || rec, songs:(p.songs || []).map(s => ({title:s.t, artist:s.a || '', dur:s.d || 0, uri:'', heard:{place:s.p || '', at:s.at || 0}, rec:s.at || rec}))});
+        started:p.at0 || rec, ended:p.at1 || rec, songs:(p.songs || []).map(s => ({title:s.t, artist:s.a || '', dur:s.d || 0, uri:'', heard:{place:s.p || '', on:s.o || '', at:s.at || 0}, rec:s.at || rec}))});
       added++;
     } catch (e) { }
   }

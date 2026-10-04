@@ -1,10 +1,12 @@
 // PHONY · the radio and the blank tape: recording, naming, the box of finished tapes, a mixtape's J-card
 /* ================= the radio and the blank tape =================
-   Songs you Shazam out in the world wait "on the radio" (three at most). The blank tape at the top
-   of the drawer records them: put it in, and it plays the oldest one waiting. Only a full listen
-   puts a song on the tape (pausing and winding back are fine; skipping or winding forward and it's
-   gone for good). A tape holds 90 minutes; when it's full you write its name on the spine with the
-   pencil and it goes into the tape box, spine out. */
+   Songs you Shazam out in the world wait "on the radio" (three at most). The REC switch records
+   them onto the blank tape: it puts the blank in by itself, then plays the oldest song waiting
+   through from Spotify. Only a full listen puts a song on the tape (pausing and winding back are
+   fine; skipping or winding forward and it's gone for good). With the real radio on, REC tapes
+   the air instead: each song the station plays goes on the tape as it ends, until you press ■.
+   A tape holds 90 minutes; when it's full you press ⏏, write its name on the spine with the
+   pencil, and it goes into the tape box, spine out. */
 const MIX_LEN = 90 * 60, MIX_SIDE = 45 * 60;
 let BLANK = store.get('blank', null), MIXES = store.get('mixtapes', []), RADIO = [];
 const DEMO_RADIO = [
@@ -32,6 +34,7 @@ window.phonyRadio = () => {
   readRadio();
   try { const n = JSON.parse(N.radioNotice()); if (radioNoticeId >= 0 && n.id !== radioNoticeId && n.text) toast(n.text); radioNoticeId = n.id; } catch (e) {}
   if (boxVisible()) renderBoxes();
+  if (S.recOn && !S.radio) resumeRec();   // REC is down and a song just came in: it records
 };
 // test hook for the browser version (and for trying it out): put a song on the radio
 window.phonyHeard = (title, artist) => {
@@ -39,6 +42,7 @@ window.phonyHeard = (title, artist) => {
   DEMO_RADIO.push({key:'d' + Date.now(), title, artist:artist || '', dur:150 + Math.round(Math.random() * 120), uri:'demo', at:Date.now(), place:'Prickly Bay, Grenada'});
   while (DEMO_RADIO.length > 3) DEMO_RADIO.shift();
   toast('On the radio: ' + title); if (boxVisible()) renderBoxes();
+  if (S.recOn && !S.radio) resumeRec();
 };
 const ready = () => RADIO.filter(w => w.uri);
 
@@ -61,27 +65,81 @@ function setMix(m){
   S.mix = m; S.boxAlbum = null; newTape(); S.albumMode = false; S.playlist = mixPl(m);
 }
 function loadBlank(){ loadMix(ensureBlank()); }
-function loadMix(m){
+const mixById = id => MIXES.find(m => m.id === id) || (BLANK && BLANK.id === id ? BLANK : null) || (typeof DUBS !== 'undefined' ? DUBS.find(m => m.id === id) : null) || null;
+// Spotify is on this mixtape: the song it's playing is one of the tape's
+function remoteOnMix(){ const m = S.mix, c = S.r.cur; return !!m && !!c && m.songs.some(s => plainSong(s.title) === plainSong(c.title)); }
+// quiet: the tape just goes in (REC does that; the radio keeps playing)
+function loadMix(m, quiet){
   readRadio();
   S.ctxHold = performance.now() + 9000; S.expect = S.r.key || null; S.rec = null;
-  if (N){ if (N.hasListenerAccess()) chooseSource({kind:'remote'}, true, true); else toast('Turn on notification access for PHONY so it can follow Spotify.'); }
+  if (!quiet && S.radio) radioOff();   // one thing plays at a time
+  if (N && !S.radio){ if (N.hasListenerAccess()) chooseSource({kind:'remote'}, true, true); else toast('Turn on notification access for PHONY so it can follow Spotify.'); }
+  if (S.playing && !S.radio){ pause(); syncKeys(); }
   setMix(m);
   S.ejected = true; insert(PL_TAPE); renderBoxes();
-  const w = m === BLANK && !m.full ? ready()[0] : null;
-  if (w){ setTimeout(() => startRecording(w), 500); return; }
+  if (quiet){ S.mixEnd = true; showMixTracks(Math.max(0, m.songs.length - 1)); if (S.radio) renderAirList(); return; }
   if (m.songs.length){
     showMixTracks(0);
     if (N && m.playlistId){ N.playPlaylist('spotify:playlist:' + m.playlistId, ''); S.playing = true; S.startAt = S.cmdAt = performance.now(); setTimeout(() => sfx('latch'), 250); syncKeys(); }
     else if (!N){ S.src = {kind:'demo', title:''}; S.tracks = mixTracks(m); S.idx = 0; S.t = 0; renderJList(); trackChanged(); setTimeout(() => { play(); sfx('latch'); syncKeys(); }, 600); }
     return;
   }
-  if (RADIO.length && !ready().length) toast('The song on the radio isn\'t found on Spotify yet. It needs a signal.');
   pause(); syncKeys(); showMixTracks(0);
 }
+
+/* ---------- the REC switch ---------- */
+// REC down: the blank goes in (whatever was in comes out; the radio keeps playing), and it records
+function recOn(){
+  if (S.recOn) return;
+  const m = ensureBlank();
+  if (S.ejected && boxVisible()) hideBox();
+  if (S.mix !== m) loadMix(m, true); else if (S.playing && !S.rec){ pause(); syncKeys(); }
+  S.recOn = true; syncRec(); sfx('latch');
+  resumeRec();
+}
+// REC up: the recording stops where it is (a song half taped stays on the radio)
+function recOff(quiet){
+  if (!S.recOn) return;
+  S.recOn = false; S.taping = null; syncRec(); if (!quiet) sfx('key');
+  if (S.rec){ S.rec = null; if (S.playing){ pause(); syncKeys(); } S.mixEnd = true; showMixTracks(Math.max(0, S.mix.songs.length - 1)); }
+  else { trackChanged(); if (S.radio) renderAirList(); }
+}
+// what's on the radio goes onto the tape: the air, or the songs waiting
+function resumeRec(){
+  const m = S.mix; if (!S.recOn || !m || m !== BLANK) return;
+  if (m.full){ trackChanged(); return; }   // TAPE FULL · ⏏ TO NAME IT
+  if (S.radio){ if (S.onAir && !S.taping){ S.taping = {title:S.onAir.title, artist:S.onAir.artist, at:S.onAir.at || Date.now()}; S.t = 0; } trackChanged(); renderAirList(); return; }
+  if (S.rec) return;
+  readRadio(); const w = ready()[0];
+  if (w){ startRecording(w); return; }
+  if (RADIO.length) toast('The song on the radio isn\'t found on Spotify yet. It needs a signal.');
+  S.mixEnd = true; showMixTracks(Math.max(0, m.songs.length - 1));
+}
+// a song ended on the air with REC down: find it on Spotify, and it's on the tape
+const airPending = {}; let airReq = 0;
+function tapeFromAir(t){
+  const id = 'air' + (++airReq); airPending[id] = {...t, on:S.radio ? S.radio.name + ' · ' + S.radio.where : ''};
+  if (N) N.findSong(id, t.title, t.artist);
+  else setTimeout(() => phonyFound(id, JSON.stringify({uri:'demo', dur:195, album:'', title:t.title, artist:t.artist, place:'Prickly Bay, Grenada'})), 300);
+}
+window.phonyFound = (id, json) => {
+  const t = airPending[id]; delete airPending[id]; if (!t) return;
+  let hit = null; try { hit = json ? JSON.parse(json) : null; } catch (e) {}
+  const m = BLANK; if (!m) return;
+  const mark = () => { const e = S.airLog.find(x => x.title === t.title && x.at === t.at); if (e) e.taped = true; if (S.radio) renderAirList(); };
+  if (!hit || !hit.uri){ toast('Not on Spotify: ' + t.title); return; }
+  if (mixSecs(m) + (hit.dur || 210) > MIX_LEN){ m.full = true; saveMix(); recOff(true); trackChanged(); return; }
+  m.songs.push({title:hit.title || t.title, artist:hit.artist || t.artist, album:hit.album || '', uri:hit.uri, dur:Math.round(hit.dur || 0),
+    heard:{at:t.at || Date.now(), place:hit.place || '', lat:hit.lat, lon:hit.lon, on:t.on}, rec:Date.now()});
+  if (!m.started) m.started = Date.now();
+  if (mixSecs(m) >= MIX_LEN - 60) m.full = true;
+  saveMix(); toSpotify(m, hit.uri); sfx('pop'); toast('On the tape: ' + (hit.title || t.title)); mark();
+  if (m.full){ recOff(true); trackChanged(); }
+};
 function startRecording(w){
   const m = S.mix; if (!m || m !== BLANK) return;
   // won't fit: the tape is full and the song waits for the next blank
-  if (mixSecs(m) + (w.dur || 210) > MIX_LEN){ m.full = true; saveMix(); pause(); showMixTracks(m.songs.length - 1); return; }
+  if (mixSecs(m) + (w.dur || 210) > MIX_LEN){ m.full = true; saveMix(); pause(); recOff(true); showMixTracks(m.songs.length - 1); return; }
   S.rec = {w, spoiled:false, seen:!N}; S.mixEnd = false;
   showMixTracks(m.songs.length);
   sfx('latch');
@@ -114,8 +172,9 @@ function skipRec(){
 function dropFromRadio(w){ if (N) N.radioDrop(w.key); else { const i = DEMO_RADIO.indexOf(w); if (i >= 0) DEMO_RADIO.splice(i, 1); } readRadio(); }
 function nextOnRadio(){
   const m = S.mix, w = ready()[0];
-  if (m && m === BLANK && !m.full && w) setTimeout(() => { if (S.mix === m && !S.rec) startRecording(w); }, 2200);
-  else if (m && m.full) trackChanged();
+  if (m && m === BLANK && !m.full && w && S.recOn) setTimeout(() => { if (S.mix === m && !S.rec && S.recOn) startRecording(w); }, 2200);
+  else if (m && m.full){ recOff(true); trackChanged(); }
+  else trackChanged();
 }
 // the Spotify playlist behind the tape, made on the first song
 let mixMaking = null;
@@ -152,6 +211,7 @@ function mixFollow(st){
 function mixByUri(uri){ const id = (uri || '').replace('spotify:playlist:', ''); return id ? MIXES.find(m => m.playlistId === id) || (BLANK && BLANK.playlistId === id ? BLANK : null) || (typeof DUBS !== 'undefined' ? DUBS.find(m => m.playlistId === id) : null) || null : null; }
 
 /* ---------- the drawer's blank, and the box of finished tapes ---------- */
+let heldAt = 0;
 function blankEl(){
   const m = ensureBlank(), pl = mixPl(m), b = document.createElement('button');
   b.className = 'rectape'; b.style.setProperty('--r', '-1.2deg');
@@ -163,12 +223,18 @@ function blankEl(){
   if (S.mix === m){ const g = document.createElement('span'); g.className = 'gone'; g.innerHTML = '<i>in the player</i>'; b.append(g); b.disabled = true; }
   else { b.append(plThumb(pl)); b.insertAdjacentHTML('beforeend', '<span class="recdot">REC</span>'); }
   const secs = mixSecs(m), nm = document.createElement('b');
-  nm.textContent = m.full ? 'Radio tape · full' : 'Radio tape'; b.append(nm);
+  nm.textContent = m.full ? 'Blank tape · full' : 'Blank tape'; b.append(nm);
   const sm = document.createElement('small');
   sm.textContent = `${m.songs.length} ${m.songs.length === 1 ? 'SONG' : 'SONGS'} · ${Math.round(secs / 60)} OF 90 MIN` + (RADIO.length && !m.full ? ` · ${RADIO.length} ON THE RADIO` : '');
   b.append(sm);
   if (RADIO.length && !m.full) b.classList.add('waiting');
-  b.addEventListener('click', () => { ensureAudio(); sfx('tick'); loadBlank(); });
+  b.addEventListener('click', () => { if (performance.now() - heldAt < 500) return; ensureAudio(); sfx('tick'); loadBlank(); });
+  // press and hold a blank with something on it: it's finished early; write its name and it goes in the box
+  if (m.songs.length && !b.disabled){
+    let hold = 0; const start = e => { if (e.button > 0) return; clearTimeout(hold); hold = setTimeout(() => { heldAt = performance.now(); ensureAudio(); sfx('latch'); try { N && N.haptic(2); } catch (err) {} openNamer(m); }, 600); };
+    b.addEventListener('pointerdown', start); ['pointerup', 'pointercancel', 'pointerleave', 'pointermove'].forEach(ev => b.addEventListener(ev, e => { if (ev !== 'pointermove' || Math.abs(e.movementX) + Math.abs(e.movementY) > 6) clearTimeout(hold); }));
+    b.addEventListener('contextmenu', e => e.preventDefault());
+  }
   return b;
 }
 function strokesCanvas(strokes, w, h, color, lw){
@@ -183,7 +249,6 @@ function drawStrokes(c, strokes, x, y, w, h, color, lw){
   c.restore();
 }
 const mixRange = m => { const a = m.songs.length ? m.songs[0].rec : m.started, b = m.ended || (m.songs.length ? m.songs[m.songs.length - 1].rec : a); return monthYear(a) === monthYear(b) ? monthYear(a) : monthYear(a) + ' – ' + monthYear(b); };
-let heldAt = 0;
 function mixCaseEl(m, i){
   const b = document.createElement('button'); b.className = 'case mixcase'; b.dataset.id = m.id;
   const rr = rng(i * 17 + 5); b.style.setProperty('--jx', ((rr() - .5) * 1.4).toFixed(2) + 'cqw'); b.style.setProperty('--jr', ((rr() - .5) * .6).toFixed(2) + 'deg');
@@ -269,7 +334,7 @@ function mixFront(x, m, w, h, photos){
 function openNamer(m){
   const host = S.open ? $('#inner') : $('#cover');
   const v = document.createElement('div'); v.className = 'namer';
-  v.innerHTML = `<div class="nhead">THE TAPE IS FULL<small>Write its name on the spine</small></div>
+  v.innerHTML = `<div class="nhead">${m.full ? 'THE TAPE IS FULL' : 'THE TAPE IS DONE'}<small>Write its name on the spine</small></div>
     <div class="nspine"><canvas></canvas><div class="npencil"><div class="pwob"></div></div></div>
     <div class="nkeys"><button class="nerase">RUB OUT</button><button class="ndone" disabled>DONE</button></div>`;
   host.append(v);
@@ -314,7 +379,7 @@ function shelveMix(m, strokes){
   m.strokes = strokes; m.ended = Date.now(); m.full = true;
   MIXES.push(m); if (BLANK === m) BLANK = null; ensureBlank(); saveMix();
   if (N && m.playlistId) N.mixRename(m.playlistId, `PHONY Mixtape Nº ${m.n} · ${mixRange(m)}`);
-  S.mix = null; S.rec = null; toPlain();
+  if (S.mix === m){ S.mix = null; S.rec = null; S.recOn = false; S.taping = null; syncRec(); toPlain(); }
   showBox(); renderBoxes(m.id);
   setTimeout(() => { const c = document.querySelector((S.open ? '.boxbay.o' : '.boxbay.c') + ` .mixcase[data-id="${m.id}"]`); if (c) c.scrollIntoView({block:'center', behavior:'smooth'}); }, 350);
 }
@@ -390,8 +455,8 @@ function buildMixFold(m){
     if (sd !== side){ side = sd; sb.append(el('div', 'fside', 'SIDE ' + sd)); }
     const s = m.songs[i], r = el('div', 'ftr mixrow' + (t.rec ? ' recrow' : '')); r.dataset.t = plainSong(t.title); if (r.dataset.t === cur) r.classList.add('on');
     const tt = el('span', 't'); tt.append(el('b', '', t.title), el('small', '', t.artist || ''));
-    const h = s && s.heard ? [s.heard.place, shortDate(s.heard.at)].filter(Boolean).join(' · ') : (t.rec ? 'recording…' : '');
-    if (h) tt.append(el('i', '', 'heard ' + (s && s.heard && s.heard.place ? 'at ' : '') + h));
+    const h = s && s.heard ? [s.heard.on || s.heard.place, shortDate(s.heard.at)].filter(Boolean).join(' · ') : (t.rec ? 'recording…' : '');
+    if (h) tt.append(el('i', '', 'heard ' + (s && s.heard && s.heard.on ? 'on ' : s && s.heard && s.heard.place ? 'at ' : '') + h));
     r.append(el('span', 'n', t.rec ? '●' : String(i + 1)), tt, el('span', 'd', t.dur ? fmt(t.dur) : ''));
     if (!t.rec) r.addEventListener('click', () => pickMixSong(i));
     sb.append(r);
@@ -416,7 +481,7 @@ function buildMixFold(m){
       fig.append(el('figcaption', '', s.heard && s.heard.place ? s.heard.place.split(',')[0] : shortDate(s.rec))); it.append(fig); }
     const tx = el('div', 'sleevetext');
     tx.append(el('div', 'st', s.title), el('div', 'sa', s.artist));
-    if (s.heard && (s.heard.place || s.heard.at)) tx.append(el('div', 'sh', (m.dub ? (m.from || 'Someone') + ' heard this ' : 'Heard ') + [s.heard.place ? 'at ' + s.heard.place : '', s.heard.at ? new Date(s.heard.at).toLocaleString('en', m.dub ? {day:'numeric', month:'long'} : {weekday:'long', day:'numeric', month:'long', hour:'numeric', minute:'2-digit'}) : ''].filter(Boolean).join(', ')));
+    if (s.heard && (s.heard.place || s.heard.on || s.heard.at)) tx.append(el('div', 'sh', (m.dub ? (m.from || 'Someone') + ' heard this ' : 'Heard ') + [s.heard.on ? 'on ' + s.heard.on : s.heard.place ? 'at ' + s.heard.place : '', s.heard.at ? new Date(s.heard.at).toLocaleString('en', m.dub ? {day:'numeric', month:'long'} : {weekday:'long', day:'numeric', month:'long', hour:'numeric', minute:'2-digit'}) : ''].filter(Boolean).join(', ')));
     const ab = about(s.artist); if (ab) tx.append(el('p', '', ab));
     it.append(tx); slb.append(it);
   });
@@ -442,7 +507,18 @@ function putBack(e){
   ensureAudio(); sfx('key'); insert(S.tape);
 }
 // closed: the strip of player still showing above the box (capture, so its keys and wheel don't also act)
-['pointerdown', 'click'].forEach(ev => $('#cover .walkman').addEventListener(ev, e => { if ($('#cover').classList.contains('boxopen') && S.ejected){ if (ev === 'click') putBack(e); else { e.preventDefault(); e.stopPropagation(); } } }, true));
+['pointerdown', 'click'].forEach(ev => $('#cover .walkman').addEventListener(ev, e => { if ($('#cover').classList.contains('boxopen') && S.ejected){ if (ev === 'click'){ if (performance.now() - heldAt > 500) putBack(e); } else { e.preventDefault(); e.stopPropagation(); holdTape(e); } } }, true));
 // open: the empty cassette bay
-$('#inner .deck').addEventListener('click', e => { if (S.ejected) putBack(e); });
+$('#inner .deck').addEventListener('click', e => { if (S.ejected && performance.now() - heldAt > 500) putBack(e); });
+$('#inner .deck').addEventListener('pointerdown', e => { if (S.ejected) holdTape(e); });
+// a blank with something on it, popped out: hold it and write its name (it's finished early)
+let tapeHold = 0;
+function holdTape(e){
+  if (e.button > 0 || !S.ejected || S.mix !== BLANK || !BLANK.songs.length || $('.namer')) return;
+  clearTimeout(tapeHold);
+  tapeHold = setTimeout(() => { heldAt = performance.now(); ensureAudio(); sfx('latch'); try { N && N.haptic(2); } catch (err) {} openNamer(BLANK); }, 600);
+  const off = () => { clearTimeout(tapeHold); removeEventListener('pointerup', off); removeEventListener('pointercancel', off); removeEventListener('pointermove', mv); };
+  const mv = ev => { if (Math.abs(ev.movementX) + Math.abs(ev.movementY) > 6) off(); };
+  addEventListener('pointerup', off); addEventListener('pointercancel', off); addEventListener('pointermove', mv);
+}
 

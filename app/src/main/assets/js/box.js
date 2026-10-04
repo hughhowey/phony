@@ -153,6 +153,7 @@ function armDrag(b, grid){
   b.addEventListener('contextmenu', e => e.preventDefault());
 }
 function loadPlaylist(pl){
+  if (S.radio) radioOff();   // one thing plays at a time
   S.boxAlbum = null; S.ctxHold = performance.now() + 9000; S.expect = S.r.key || null;
   if (N){
     N.playPlaylist(pl.uri, pl.name);
@@ -362,6 +363,7 @@ function showCase(al, bay){
   });
 }
 function loadFromBox(al){
+  if (S.radio) radioOff();
   newTape(); S.boxAlbum = {id:al.id, title:al.title}; S.playlist = null; S.ctxHold = performance.now() + 9000; S.expect = S.r.key || null;
   if (N){
     N.playAlbum(al.uri, al.title);
