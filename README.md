@@ -27,7 +27,7 @@ Spotify lets a development-mode app serve five accounts, and signs you out after
 
 ## Shells
 
-PHONY has fourteen shells: blue, black recorder, pink 80s, clear orange, silver digital, beat-up yellow, clear blush, a silver radio recorder with an AM/FM dial, a shoebox desk recorder with piano keys and a DUR counter, a kid's player in yellow and green, a smoky clear one with the works showing, a clear-front hi-fi with chrome buttons, an all-weather yellow one with a latch and a strap, and silver with a red stripe. There's no menu. Each shell hides a spot (a label, a sticker, a rubber band, a loose screw, a button, a knob, a badge); press and hold it for about a second and the next shell snaps on. A quick tap does nothing. The shell you land on stays.
+PHONY has fourteen shells, in this order: blue, a silver radio recorder with an AM/FM dial, black recorder, pink 80s, a shoebox desk recorder with piano keys and a DUR counter, clear orange, silver digital, an all-weather yellow one with a latch and a strap, beat-up yellow, clear blush, a kid's player in yellow and green, a smoky clear one with the works showing, a clear-front hi-fi with chrome buttons, and silver with a red stripe. The three with a dial are spread through the order so a radio is never far. There's no menu. Each shell hides a spot (a label, a sticker, a rubber band, a loose screw, a button, a knob, a badge); press and hold it for about a second and the next shell snaps on. A quick tap does nothing. The shell you land on stays.
 
 ## Music
 
@@ -47,6 +47,10 @@ The first time, tap the note in the box to sign in to Spotify (once, in the brow
 Under the boxes is a drawer of playlist tapes: your twenty most recently played Spotify playlists, tossed in loose. Press and hold a tape to pick it up and drag it where you want it; the drawer keeps your order, and a playlist new to the drawer lands on top. Each playlist gets its own shell (fifteen designs, after real 80s and 90s tapes) and its name written on the label in a pen of its own: ballpoint, Sharpie, felt tip, pencil, gel, or paint pen on the dark shells. The shell and pen stay with the playlist. Tap one and Spotify plays it. Start a playlist in Spotify itself and its tape goes into the player.
 
 "Recently played" comes from Spotify's recent history plus every playlist PHONY sees playing; if that's fewer than twenty, the rest are your playlists in Spotify's order. The drawer needs one more Spotify sign-in to read playlists (tap the note in the drawer).
+
+## The dial
+
+Three shells have a radio in them: the silver radio recorder, the shoebox recorder and the all-weather one. Drag the needle along the FM dial and you get static, then a station: real ones, playing live through PHONY (WFMU, KEXP, KCRW's Eclectic 24, Radio Paradise, and a run of SomaFM channels, from Underground 80s to Secret Agent). The lamp on the dial lights when a station is locked in. The tape waits while the radio plays; ◀◀ and ▶▶ step from station to station, ■ switches the radio off, and ▶ is back to the tape where it left off. The banner on the J-card shows the station and whatever it says is playing. Every song a station names goes "on the radio" for the blank tape, below. The streams are the stations' own, for personal listening; the list is at the top of `js/radio.js` if you want other stations on your dial. The radio needs a signal.
 
 ## The radio and the blank tape
 

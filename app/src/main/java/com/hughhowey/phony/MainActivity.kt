@@ -29,6 +29,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
@@ -380,6 +382,20 @@ class MainActivity : ComponentActivity() {
         /** {lat, lon, at, place} or "" (no permission or no fix yet). */
         @JavascriptInterface fun whereAmI(): String = places.here()
         @JavascriptInterface fun placeName(lat: Double, lon: Double): String = places.name(lat, lon)
+
+        // ----- the real radio: a station streams through PHONY's own player -----
+        @JavascriptInterface fun tuneRadio(url: String, name: String) = onMain {
+            remote.enabled = false
+            NowLoaded.key = "radio:$url"; NowLoaded.tracks = null
+            val uri = android.net.Uri.parse(url)
+            val item = MediaItem.Builder().setMediaId("radio").setUri(uri)
+                .setRequestMetadata(MediaItem.RequestMetadata.Builder().setMediaUri(uri).build())
+                .setMediaMetadata(MediaMetadata.Builder().setTitle(name).setArtist("On the radio").build()).build()
+            controller?.run { setMediaItem(item); prepare(); play() }
+        }
+        @JavascriptInterface fun radioOff() = onMain { controller?.run { stop(); clearMediaItems() }; NowLoaded.key = ""; NowLoaded.tracks = null }
+        /** What the station says is playing: {title, artist, at}. */
+        @JavascriptInterface fun onAir(): String = radio.onAirJson()
 
         // ----- the radio and the blank tape -----
         /** Songs heard and waiting for the blank tape: [{key, title, artist, uri, dur, album, at, lat, lon, place, how}]. */

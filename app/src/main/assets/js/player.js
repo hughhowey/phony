@@ -173,6 +173,12 @@ function syncKeys(){ $$('.key[data-k=play]').forEach(k => k.classList.toggle('la
 let holdTimer = null, holding = false;
 function keyDown(k, el){
   ensureAudio(); el.classList.add('down');
+  if (S.radio){   // on the radio: ▶ is back to the tape, ■ switches the radio off, ◀◀ ▶▶ step through the stations
+    if (k === 'play'){ sfx('latch'); radioOff(); play(); syncKeys(); }
+    else if (k === 'stop'){ sfx('key'); radioOff(); }
+    else { sfx('key'); stepStation(k === 'ff' ? 1 : -1); }
+    return;
+  }
   if (k === 'play'){
     if (S.ejected || S.sideEnd) { sfx('tick'); return; }
     if (S.flipped){ sfx('latch'); toSideB(); return; }
@@ -192,7 +198,7 @@ function keyDown(k, el){
 }
 function keyUp(k, el){
   el.classList.remove('down');
-  if (k !== 'ff' && k !== 'rew') return;
+  if (S.radio || k !== 'ff' && k !== 'rew') return;
   clearTimeout(holdTimer); if (S.ejected) return;
   if (holding){ S.cue = 0; holding = false; sfx('tick'); if (isRemote()) N.remoteCmd('seek', String(Math.round(S.t * 1000))); }
   else if (holdTimer){ k === 'ff' ? next() : prev(); }
@@ -339,6 +345,11 @@ function trackChanged(){
   }
   if (S.sideEnd) $('#nowlabel').textContent = 'END OF SIDE A · PRESS ■ TO FLIP';
   else if (S.flipped) $('#nowlabel').textContent = 'SIDE B · PRESS ▶';
+  if (S.radio){   // the tape waits; the banner is the station's
+    const st = S.radio, oa = S.onAir;
+    $('#nowlabel').textContent = `ON THE AIR · ${st.f.toFixed(1)} FM` + (S.radioPlaying ? '' : ' · TUNING…');
+    $('#nowtitle').textContent = oa ? oa.title : st.name; $('#nowartist').textContent = oa ? oa.artist : st.where;
+  }
   if (foldOpen) foldTrackChanged();
 }
 function tapeChanged(){
@@ -413,6 +424,7 @@ let pollAt = 0, remoteMissing = 0, ctxAt = 0;
 const sameName = (a, b) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
 function pollNative(now){
   if (!N || now - pollAt < 33) return; pollAt = now;
+  if (S.radio) return;   // the station is playing through the same player; the tape's clock waits
   if (isLocal()){
     let st; try { st = JSON.parse(N.getState()); } catch (e) { return; }
     if (st.index >= 0 && st.index < S.tracks.length && st.index !== S.idx){ S.idx = st.index; trackChanged(); }
@@ -744,7 +756,7 @@ function loop(now){
   S.ej += ((S.ejected ? 1 : 0) - S.ej) * Math.min(1, dt * 9);
   const moving = (S.playing || S.cue) && !S.ejected;
   S.motor += ((moving ? 1 : 0) - S.motor) * Math.min(1, dt * (moving ? 14 : 20));
-  pollNative(now);
+  pollNative(now); if (typeof pollRadio === 'function') pollRadio(now);
   followPhoneVolume(now);
   if (S.cue && !S.ejected){
     const ck = S.cueK || 9;

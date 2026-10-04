@@ -616,7 +616,11 @@ body[data-mode=cover] #cover .window,body[data-mode=cover] #cover .lcd{touch-act
 .dial .row{position:absolute;left:2cqw;right:9cqw;display:flex;justify-content:space-between;align-items:center}
 .dial .row b{font-weight:400;width:5cqw}
 .dial .am{top:1.2cqw}.dial .fm{bottom:1.2cqw}
+.dial{pointer-events:auto;touch-action:none;cursor:ew-resize}
 .dial .needle{position:absolute;top:.6cqw;bottom:.6cqw;width:.5cqw;background:#d3261a;box-shadow:0 0 .3cqw rgba(0,0,0,.4)}
+.dial .lamp{position:absolute;right:8.2cqw;top:50%;width:1.3cqw;height:1.3cqw;margin-top:-.65cqw;border-radius:50%;background:#4a1810;box-shadow:inset 0 1px 1px rgba(0,0,0,.6)}
+.dial.on .lamp{background:#ff4a2e;box-shadow:0 0 1.2cqw #ff4a2e}
+.dial .knob{transition:transform .25s}
 .dial .knob{position:absolute;right:1cqw;top:50%;width:6.2cqw;height:6.2cqw;margin-top:-3.1cqw;border-radius:50%;background:repeating-conic-gradient(#aeb3b9 0 6deg,#e9ecef 6deg 12deg);box-shadow:0 .4cqw .7cqw rgba(0,0,0,.45),inset 0 0 0 1.4cqw #cfd3d7}
 .grille2{position:absolute;left:9cqw;right:9cqw;bottom:3%;height:14.5%;border-radius:1.2cqw;background:radial-gradient(circle,#2b2e33 34%,transparent 38%) 0 0/1.7cqw 1.7cqw,linear-gradient(#c3c7cb,#b2b6ba);box-shadow:inset 0 .3cqw .6cqw rgba(0,0,0,.35),0 1px 0 rgba(255,255,255,.5)}
 
@@ -743,4 +747,4 @@ body[data-mode=cover] #cover .window,body[data-mode=cover] #cover .lcd{touch-act
 .badge{padding:.6cqw 1.6cqw;border-radius:.4cqw;background:#c62b24;color:#fff4ee;font-family:var(--f-brand);font-weight:700;font-size:2.4cqw;letter-spacing:.14em;box-shadow:0 .3cqw .5cqw rgba(0,0,0,.35)}
 /* light tops: the model line in the top strip is dark */
 [data-skin=radio] .model,[data-skin=hifi] .model,[data-skin=stripe] .model{color:#4a4f56;text-shadow:0 1px 0 rgba(255,255,255,.5)}
-[data-skin=sport] .face > .engrave{display:none}
+[data-skin=sport] .face > .engrave,[data-skin=sport] .bias{display:none}

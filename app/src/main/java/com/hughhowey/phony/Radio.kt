@@ -34,6 +34,28 @@ class Radio private constructor(private val ctx: Context) {
 
     @Synchronized fun waitingJson(): String = if (file.exists()) file.readText() else "[]"
 
+    // ---------- the real radio: what the station says is playing ----------
+
+    @Volatile var onAirTitle = ""; private set
+    @Volatile var onAirArtist = ""; private set
+    @Volatile var onAirAt = 0L; private set
+    private var lastRaw = ""
+
+    /** A station's "Artist - Title" line. Real songs (with an artist) go on the radio for the blank tape; station idents don't. */
+    fun onAir(raw: String) {
+        val s = raw.trim()
+        if (s == lastRaw) return
+        lastRaw = s
+        val cut = s.indexOf(" - ")
+        onAirArtist = if (cut > 0) s.substring(0, cut).trim() else ""
+        onAirTitle = if (cut > 0) s.substring(cut + 3).trim() else s
+        onAirAt = System.currentTimeMillis()
+        if (onAirTitle.isNotEmpty() && onAirArtist.isNotEmpty()) heard(onAirTitle, onAirArtist, "radio")
+        onChange?.invoke()
+    }
+
+    fun onAirJson(): String = JSONObject().put("title", onAirTitle).put("artist", onAirArtist).put("at", onAirAt).toString()
+
     @Synchronized private fun list(): MutableList<JSONObject> {
         val a = try { JSONArray(waitingJson()) } catch (e: Exception) { JSONArray() }
         return (0 until a.length()).map { a.getJSONObject(it) }.toMutableList()
@@ -60,7 +82,8 @@ class Radio private constructor(private val ctx: Context) {
             l.add(o)
             while (l.size > WAITING) l.removeAt(0)
             save(l)
-            notice = "On the radio: $t" + (if (a.isNotEmpty()) " · $a" else ""); noticeId++
+            // the real radio names a song every few minutes; those don't need announcing
+            if (how != "radio") { notice = "On the radio: $t" + (if (a.isNotEmpty()) " · $a" else ""); noticeId++ }
         }
         if (uri.isEmpty()) resolveSoon()
     }

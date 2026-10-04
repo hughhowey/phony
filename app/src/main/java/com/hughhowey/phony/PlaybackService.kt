@@ -5,6 +5,9 @@ import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Metadata
+import androidx.media3.common.Player
+import androidx.media3.extractor.metadata.icy.IcyInfo
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -31,6 +34,13 @@ class PlaybackService : MediaSessionService() {
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
+
+        // a radio station names each song as it plays (ICY metadata): that's what goes "on the radio"
+        player.addListener(object : Player.Listener {
+            override fun onMetadata(metadata: Metadata) {
+                for (i in 0 until metadata.length()) { val e = metadata.get(i); if (e is IcyInfo) Radio.get(this@PlaybackService).onAir(e.title ?: "") }
+            }
+        })
 
         val open = packageManager.getLaunchIntentForPackage(packageName)
         val openPending = PendingIntent.getActivity(
