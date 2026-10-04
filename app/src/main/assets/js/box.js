@@ -47,7 +47,8 @@ Object.keys(LOOKS).forEach(k => {
 store.set('plLooks', LOOKS);
 // each playlist gets a shell, a pen and a toss angle the first time it's seen, and keeps them
 function assignLook(id, used){
-  let pool = DESIGNS.map((_, i) => i).filter(i => !used.has(i)); if (!pool.length) pool = DESIGNS.map((_, i) => i);
+  const plain = DESIGNS.map((_, i) => i).filter(i => !DESIGNS[i].dub);   // the dub shells are only for dubbed tapes
+  let pool = plain.filter(i => !used.has(i)); if (!pool.length) pool = plain;
   const d = pool[Math.floor(Math.random() * pool.length)]; used.add(d);
   const pens = Object.keys(PENS).filter(k => !!PENS[k].dark === !!DESIGNS[d].write.dark);
   const rnd = (a) => +((Math.random() - .5) * a).toFixed(2);
@@ -76,6 +77,7 @@ function drawerEl(){
   const note = (text, onClick) => { const b = document.createElement('button'); b.className = 'case note'; b.innerHTML = '<span class="sp"><span class="hw"></span></span>'; b.querySelector('.hw').textContent = text; if (onClick) b.addEventListener('click', () => { ensureAudio(); sfx('tick'); onClick(); }); else b.disabled = true; return b; };
   if (N && boxStatus.signedIn && !boxStatus.canPlaylists){ grid.append(note('Tap here to let PHONY see your playlists.', () => N.spotifyLogin())); return dr; }
   if (N && (!boxStatus.signedIn || !boxStatus.hasClientId)) return null;
+  if (typeof DUBS !== 'undefined') DUBS.forEach(m => grid.append(dubEl(m)));   // tapes other people dubbed for you
   if (!PLAYLISTS.length){ grid.append(note(boxStatus.state === 'loading' ? 'Fetching your playlists…' : 'Play a playlist in Spotify and its tape lands here.')); return dr; }
   arranged().forEach(pl => {
     const lk = plLook(pl), b = document.createElement('button'); b.dataset.id = pl.id;

@@ -260,6 +260,34 @@ const moreLabels = {
     [[120, 280], [880, 250]].forEach(([x, y]) => { c.fillStyle = '#ffe41c'; c.beginPath(); c.moveTo(x, y - 30); c.lineTo(x + 26, y + 16); c.lineTo(x - 26, y + 16); c.fill(); });
   },
   // pink shell, checkerboard header, lilac rules
+  // red shell, cream label, a row of little hearts top and bottom
+  love(c){
+    c.fillStyle = '#f6e3df'; c.fillRect(60, 50, 880, 420);
+    const heart = (x, y, r, col) => { c.fillStyle = col; c.beginPath(); c.moveTo(x, y + r * .9); c.bezierCurveTo(x - r * 1.3, y - r * .1, x - r * .6, y - r * 1.1, x, y - r * .35); c.bezierCurveTo(x + r * .6, y - r * 1.1, x + r * 1.3, y - r * .1, x, y + r * .9); c.fill(); };
+    for (let i = 0; i < 17; i++){ heart(90 + i * 51, 82, 13, i % 3 ? '#b3202b' : '#e8a0a8'); heart(90 + i * 51, 438, 13, i % 3 ? '#b3202b' : '#e8a0a8'); }
+    c.strokeStyle = 'rgba(179,32,43,.35)'; c.lineWidth = 2; c.beginPath(); c.moveTo(100, 162); c.lineTo(900, 162); c.moveTo(100, 212); c.lineTo(900, 212); c.stroke();
+    smallCaps(c, 'FOR YOU', 500, 400, 26, '#b3202b', 'center', '800', 6);
+    smallCaps(c, 'A', 96, 126, 44, '#b3202b', 'center', '800');
+  },
+  // blue shell, white label, a yellow band
+  friend(c){
+    c.fillStyle = '#f6f3ea'; c.fillRect(60, 50, 880, 420);
+    c.fillStyle = '#f4c21b'; c.fillRect(60, 50, 880, 60); c.fillRect(60, 400, 880, 70);
+    c.strokeStyle = 'rgba(47,120,196,.35)'; c.lineWidth = 2; c.beginPath(); c.moveTo(100, 162); c.lineTo(900, 162); c.moveTo(100, 212); c.lineTo(900, 212); c.stroke();
+    smallCaps(c, 'FROM A FRIEND', 500, 94, 30, '#1a1a1a', 'center', '800', 4);
+    smallCaps(c, 'PLAY LOUD', 500, 446, 26, '#2f78c4', 'center', '800', 6);
+    smallCaps(c, 'A', 96, 126, 44, '#2f78c4', 'center', '800');
+  },
+  // pink shell, lilac label, glitter, stars
+  bff(c){
+    c.fillStyle = '#e9d6f5'; c.fillRect(60, 50, 880, 420);
+    const r = rng(77);
+    for (let i = 0; i < 260; i++){ c.fillStyle = r() < .5 ? 'rgba(247,209,74,.9)' : 'rgba(255,255,255,.95)'; const x = 60 + r() * 880, y = 50 + r() * 420, d = 1.5 + r() * 3; c.beginPath(); c.arc(x, y, d, 0, TAU); c.fill(); }
+    const star = (x, y, R, col) => { c.fillStyle = col; c.beginPath(); for (let k = 0; k < 10; k++){ const a = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? R * .45 : R; k ? c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr) : c.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } c.fill(); };
+    star(110, 100, 30, '#ff6fb5'); star(890, 110, 24, '#8f6fc4'); star(880, 430, 30, '#f7d14a'); star(120, 420, 22, '#8f6fc4');
+    c.strokeStyle = 'rgba(143,111,196,.4)'; c.lineWidth = 2; c.beginPath(); c.moveTo(100, 162); c.lineTo(900, 162); c.moveTo(100, 212); c.lineTo(900, 212); c.stroke();
+    c.fillStyle = '#8f6fc4'; c.font = `44px "Gochi Hand", ${HAND}`; c.textAlign = 'center'; c.textBaseline = 'alphabetic'; c.fillText('BFF 4 EVER', 500, 410);
+  },
   pastel(c){
     c.fillStyle = '#fbf8f3'; c.fillRect(60, 50, 880, 420);
     for (let i = 0; i < 40; i++){ c.fillStyle = i % 2 ? '#cdb8ea' : '#f7e39a'; c.fillRect(60 + i * 22, 56, 22, 20); c.fillStyle = i % 2 ? '#f7e39a' : '#cdb8ea'; c.fillRect(60 + i * 22, 76, 22, 20); }
@@ -282,6 +310,10 @@ const DESIGNS = [
   {id:'blacksf', name:'Black smoke', shell:'rgba(26,22,20,.93)', bias:'chrome', label:moreLabels.blacksf, write:{x:110, y:456, w:780, size:64, dark:true}, jc:{stripes:['#1d1a18','#d23a2e','#e6e6e6'], type:'TAKA SF 60 · HIGH POSITION'}},
   {id:'neon', name:'Hyper-X', shell:'#f2dc12', bias:'chrome', label:moreLabels.neon, write:{x:106, y:130, w:790, size:68}, jc:{stripes:['#141414','#ff2fa0','#1fe0f0'], type:'HYPER·X 90 · EXTRA HIGH OUTPUT'}},
   {id:'pastel', name:'Candy 46', shell:'#f2c3cd', bias:'normal', label:moreLabels.pastel, write:{x:96, y:142, w:810, size:68}, jc:{stripes:['#cdb8ea','#f7e39a','#bfe6d3'], type:'CANDY 46 · TYPE I'}},
+  // the three a dubbed tape comes on (never handed to a playlist): for someone you love, a friend, a best friend
+  {id:'love', dub:true, name:'With love', shell:'#b3202b', bias:'normal', label:moreLabels.love, write:{x:120, y:150, w:760, size:66}, jc:{stripes:['#b3202b','#f6e3df','#e8a0a8'], type:'DUBBED WITH LOVE · C90'}},
+  {id:'friend', dub:true, name:'From a friend', shell:'#2f78c4', bias:'normal', label:moreLabels.friend, write:{x:110, y:150, w:780, size:66}, jc:{stripes:['#2f78c4','#f4c21b','#f6f3ea'], type:'FROM A FRIEND · C90'}},
+  {id:'bff', dub:true, name:'BFF', shell:'#ff6fb5', bias:'normal', label:moreLabels.bff, write:{x:120, y:150, w:760, size:66}, jc:{stripes:['#ff6fb5','#8f6fc4','#f7d14a'], type:'BFF · 4 EVER · C90'}},
 ];
 
 // what each playlist was written in; dark: for writing on black

@@ -13,6 +13,7 @@ if (N && S.src.kind === 'demo') $('#mixtitle').textContent = 'Tap here for music
 // know the drawer's playlists from the start, so a playlist already playing in Spotify gets its tape
 if (N) try { readBox(); } catch (e) {}
 readRadio(); ensureBlank();
+if (N) takeDubs();   // a tape dubbed for you may have arrived while PHONY was closed
 // browser version only: jump the sample clock, for trying things out
 if (!N) window.phonyTestSeek = t => { S.t = t < 0 ? dur(S.idx) + t : t; };
 if (N) try { radioNoticeId = JSON.parse(N.radioNotice()).id; } catch (e) {}

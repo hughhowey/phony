@@ -66,6 +66,10 @@ A mixtape's J-card has your writing on the spine, the songs with where and when 
 
 Out of signal (a plane, a passage), PHONY still follows and controls whatever Spotify is playing, since that goes through the phone, not the internet. A tape from the box or the drawer plays if Spotify has that album or playlist downloaded; so does a song picked on the J-card. The box, the drawer and every J-card PHONY has already fetched are kept on the phone. A song recorded off the radio with no signal goes onto its Spotify playlist the next time there is one.
 
+## Dubbing a tape for someone
+
+Press and hold a finished tape's case in the MY TAPES box and PHONY offers three shells to dub it onto: one with hearts, one from a friend, one for a best friend. Pick one and the phone's share sheet opens with a message: a Spotify link anyone can play, and, folded into the same message, the tape itself for PHONY on the other phone — your handwriting on the spine, the songs, and where you heard each one (place names and dates, nothing more). The other person shares that message to PHONY (or copies it and opens PHONY), and the tape is in their drawer on the shell you chose, in your writing, "dubbed by" you; its J-card says where you heard each song. The first dub asks you to sign in to Spotify once more, so PHONY can open the playlist up for them.
+
 ## Sides
 
 An album plays like a cassette: Side A is the first half of the songs. When Side A runs out the tape stops; press **■** to flip it and **▶** to play Side B. The silver digital shell has auto reverse and carries on by itself.

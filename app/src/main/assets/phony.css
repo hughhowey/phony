@@ -432,6 +432,16 @@ body[data-mode=cover] #cover .window,body[data-mode=cover] #cover .lcd{touch-act
 .skeys .scancel{background:none;color:#8a7a5c}
 .skeys button:disabled{opacity:.35;cursor:default}
 
+/* dubbing a tape: three shells to choose from, and a dubbed tape in the drawer */
+.dubrow{display:flex;gap:3cqw}
+.dubtape{flex:1;min-width:0;display:flex;flex-direction:column;gap:1.4cqw;align-items:center;border:0;padding:0;background:none;cursor:pointer;color:#5d5243}
+.dubtape canvas{width:100%;height:auto;aspect-ratio:1000/638;border-radius:1cqw;box-shadow:0 1cqw 2cqw rgba(0,0,0,.4);transition:transform .15s}
+.dubtape:active canvas{transform:translateY(-.6cqw) scale(1.03)}
+.dubtape b{font-family:var(--f-print);font-weight:600;font-size:max(11px,2.8cqw);letter-spacing:.1em;text-transform:uppercase}
+.blanks .dubbed{position:relative;display:flex;flex-direction:column;gap:1.2cqw;align-items:flex-start;min-width:0;background:none;border:0;padding:0;cursor:pointer;color:rgba(255,236,210,.9);text-align:left;transform:rotate(var(--r,0deg))}
+.blanks .dubbed canvas{width:100%;height:auto;aspect-ratio:1000/638;border-radius:1.2cqw;box-shadow:0 1.4cqw 2.4cqw rgba(0,0,0,.55)}
+.blanks .dubbed b{font-family:var(--f-hand);font-size:4.6cqw;line-height:1;letter-spacing:0;text-transform:none;color:#f3dfc0;transform:rotate(-1deg)}
+.blanks .dubbed small{font-family:var(--f-print);font-weight:600;font-size:2.1cqw;letter-spacing:.08em;opacity:.6;margin-top:-.6cqw}
 /* a mixtape's J-card */
 .fp.mixfront canvas{position:absolute;inset:0;width:100%;height:100%}
 .fp.mixspine .mixspinein{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(90deg,#efe4c8,#f7efdb 40%,#ece0c2)}

@@ -33,11 +33,12 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
     companion object {
         const val REDIRECT = "phony://callback"
         private const val SCOPES = "user-library-read user-modify-playback-state user-read-playback-state user-read-currently-playing " +
-            "playlist-read-private playlist-read-collaborative user-read-recently-played playlist-modify-private"
+            "playlist-read-private playlist-read-collaborative user-read-recently-played playlist-modify-private playlist-modify-public"
         private const val PLAY_SCOPE = "user-modify-playback-state"
         private const val LIST_SCOPES = "playlist-read-private user-read-recently-played"
         const val DRAWER = 20
         private const val MIX_SCOPE = "playlist-modify-private"
+        private const val SHARE_SCOPE = "playlist-modify-public"
     }
 
     private val prefs = ctx.getSharedPreferences("spotify", Context.MODE_PRIVATE)
@@ -73,6 +74,8 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
     val canPlay get() = signedIn && (prefs.getString("scope", "") ?: "").contains(PLAY_SCOPE)
     /** Signed in with permission to make the mixtape playlists (added with the blank tape). */
     val canMix get() = signedIn && (prefs.getString("scope", "") ?: "").contains(MIX_SCOPE)
+    /** Signed in with permission to open a mixtape's playlist up, so a tape can be dubbed for someone (added with dubbing). */
+    val canShare get() = signedIn && (prefs.getString("scope", "") ?: "").contains(SHARE_SCOPE)
     /** Signed in with permission to read playlists and what played lately (added with the playlist drawer). */
     val canPlaylists get() = signedIn && LIST_SCOPES.split(" ").all { (prefs.getString("scope", "") ?: "").contains(it) }
 
@@ -101,6 +104,7 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
         .put("canPlay", canPlay)
         .put("canPlaylists", canPlaylists)
         .put("canMix", canMix)
+        .put("canShare", canShare)
         .put("notice", notice)
         .put("noticeId", noticeId)
         .toString()
@@ -468,6 +472,15 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
         val left = JSONArray()
         for (i in 0 until q.length()) { val e = q.getJSONObject(i); if (!mixAddNow(e.getString("id"), e.getString("uri"))) left.put(e) }
         synchronized(this) { prefs.edit().putString("mixQueue", left.toString()).apply() }
+    }
+
+    /** A dubbed tape's playlist has to play on the other phone: make it public. done(ok) on the main thread. */
+    fun mixPublic(id: String, done: (Boolean) -> Unit) {
+        val main = android.os.Handler(android.os.Looper.getMainLooper())
+        Thread {
+            val ok = try { api("PUT", "https://api.spotify.com/v1/playlists/$id", JSONObject().put("public", true).toString()); true } catch (e: Exception) { false }
+            main.post { done(ok) }
+        }.start()
     }
 
     fun mixRename(id: String, name: String) {

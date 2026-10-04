@@ -48,8 +48,8 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- Shazam's Share button: send a song to PHONY's radio -->
-            <intent-filter android:label="PHONY radio">
+            <!-- Shazam's Share button: send a song to PHONY's radio. A tape dubbed for you: into the drawer. -->
+            <intent-filter android:label="PHONY">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />

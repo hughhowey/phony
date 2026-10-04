@@ -15,8 +15,8 @@ function saveMix(){ store.set('blank', BLANK); store.set('mixtapes', MIXES); }
 function ensureBlank(){
   if (BLANK) return BLANK;
   // a fresh blank: a different shell from the last one
-  const lastD = MIXES.length ? MIXES[MIXES.length - 1].d : -1;
-  let d; do { d = Math.floor(Math.random() * DESIGNS.length); } while (d === lastD && DESIGNS.length > 1);
+  const lastD = MIXES.length ? MIXES[MIXES.length - 1].d : -1, plain = DESIGNS.map((_, i) => i).filter(i => !DESIGNS[i].dub);
+  let d; do { d = plain[Math.floor(Math.random() * plain.length)]; } while (d === lastD && plain.length > 1);
   BLANK = {id:'m' + Date.now().toString(36), d, songs:[], playlistId:'', started:0, n:MIXES.length + 1};
   saveMix(); return BLANK;
 }
@@ -149,7 +149,7 @@ function mixFollow(st){
   const i = m.songs.findIndex(s => plainSong(s.title) === plainSong(st.title));
   if (i >= 0) showMixTracks(i);
 }
-function mixByUri(uri){ const id = (uri || '').replace('spotify:playlist:', ''); return id ? MIXES.find(m => m.playlistId === id) || (BLANK && BLANK.playlistId === id ? BLANK : null) : null; }
+function mixByUri(uri){ const id = (uri || '').replace('spotify:playlist:', ''); return id ? MIXES.find(m => m.playlistId === id) || (BLANK && BLANK.playlistId === id ? BLANK : null) || (typeof DUBS !== 'undefined' ? DUBS.find(m => m.playlistId === id) : null) || null : null; }
 
 /* ---------- the drawer's blank, and the box of finished tapes ---------- */
 function blankEl(){
@@ -183,6 +183,7 @@ function drawStrokes(c, strokes, x, y, w, h, color, lw){
   c.restore();
 }
 const mixRange = m => { const a = m.songs.length ? m.songs[0].rec : m.started, b = m.ended || (m.songs.length ? m.songs[m.songs.length - 1].rec : a); return monthYear(a) === monthYear(b) ? monthYear(a) : monthYear(a) + ' – ' + monthYear(b); };
+let heldAt = 0;
 function mixCaseEl(m, i){
   const b = document.createElement('button'); b.className = 'case mixcase'; b.dataset.id = m.id;
   const rr = rng(i * 17 + 5); b.style.setProperty('--jx', ((rr() - .5) * 1.4).toFixed(2) + 'cqw'); b.style.setProperty('--jr', ((rr() - .5) * .6).toFixed(2) + 'deg');
@@ -193,7 +194,11 @@ function mixCaseEl(m, i){
   const cv = strokesCanvas(m.strokes, 800, 100, '#2b2b30', 5); cv.className = 'mixname'; sp.append(cv);
   const yr = document.createElement('span'); yr.className = 'yr'; yr.textContent = mixRange(m).toUpperCase(); sp.append(yr);
   b.append(sp); b.setAttribute('aria-label', 'Mixtape ' + m.n);
-  b.addEventListener('click', () => { ensureAudio(); sfx('tick'); b.classList.add('pull'); setTimeout(() => b.classList.remove('pull'), 400); showMixCase(m, b.closest('.boxbay')); });
+  b.addEventListener('click', () => { if (performance.now() - heldAt < 500) return; ensureAudio(); sfx('tick'); b.classList.add('pull'); setTimeout(() => b.classList.remove('pull'), 400); showMixCase(m, b.closest('.boxbay')); });
+  // press and hold the case: dub a copy for someone
+  let hold = 0; const start = e => { if (e.button > 0) return; clearTimeout(hold); hold = setTimeout(() => { heldAt = performance.now(); ensureAudio(); sfx('latch'); try { N && N.haptic(2); } catch (err) {} openDub(m); }, 600); };
+  b.addEventListener('pointerdown', start); ['pointerup', 'pointercancel', 'pointerleave', 'pointermove'].forEach(ev => b.addEventListener(ev, e => { if (ev !== 'pointermove' || Math.abs(e.movementX) + Math.abs(e.movementY) > 6) clearTimeout(hold); }));
+  b.addEventListener('contextmenu', e => e.preventDefault());
   return b;
 }
 function mixBoxEl(fresh){
@@ -319,6 +324,7 @@ const mixPics = {}, artistAbout = {};
 function mixPhotos(m){
   const have = mixPics[m.id]; if (have && have.n === m.songs.length) return have;
   const P = mixPics[m.id] = {n:m.songs.length, near:[], across:[]};
+  if (m.dub) return P;   // someone else's days: their photos aren't on this phone
   if (!N){ // the browser version: stand-in snapshots
     const fake = (i, sat) => { const c = document.createElement('canvas'); c.width = c.height = 300; const x = c.getContext('2d'), r = rng(i * 7 + 3);
       const g = x.createLinearGradient(0, 0, 0, 300); g.addColorStop(0, `hsl(${190 + r() * 30},${sat}%,${62 + r() * 12}%)`); g.addColorStop(.55, `hsl(${30 + r() * 20},70%,75%)`); g.addColorStop(.56, `hsl(${195 + r() * 15},55%,${38 + r() * 10}%)`); g.addColorStop(1, `hsl(200,60%,22%)`);
@@ -396,8 +402,8 @@ function buildMixFold(m){
 
   // sleeve notes: each song with the photo you took nearest the moment you heard it
   const sl = panel('sleeve'), slb = el('div', 'fbody'); sl.append(slb);
-  slb.append(el('div', 'fk', 'SLEEVE NOTES'), el('div', 'fh', 'Where these came from'));
-  if (N && !N.hasPhotos()){
+  slb.append(el('div', 'fk', 'SLEEVE NOTES'), el('div', 'fh', m.dub ? 'Dubbed for you by ' + (m.from || 'someone') : 'Where these came from'));
+  if (N && !N.hasPhotos() && !m.dub){
     const ask = el('div', 'fwait', 'Tap here to put your photos from those days on the card. They stay on the phone.'); ask.style.cursor = 'pointer';
     ask.addEventListener('click', () => N.requestPhotos()); slb.append(ask);
   }
@@ -410,7 +416,7 @@ function buildMixFold(m){
       fig.append(el('figcaption', '', s.heard && s.heard.place ? s.heard.place.split(',')[0] : shortDate(s.rec))); it.append(fig); }
     const tx = el('div', 'sleevetext');
     tx.append(el('div', 'st', s.title), el('div', 'sa', s.artist));
-    if (s.heard) tx.append(el('div', 'sh', 'Heard ' + [s.heard.place ? 'at ' + s.heard.place : '', new Date(s.heard.at).toLocaleString('en', {weekday:'long', day:'numeric', month:'long', hour:'numeric', minute:'2-digit'})].filter(Boolean).join(', ')));
+    if (s.heard && (s.heard.place || s.heard.at)) tx.append(el('div', 'sh', (m.dub ? (m.from || 'Someone') + ' heard this ' : 'Heard ') + [s.heard.place ? 'at ' + s.heard.place : '', s.heard.at ? new Date(s.heard.at).toLocaleString('en', m.dub ? {day:'numeric', month:'long'} : {weekday:'long', day:'numeric', month:'long', hour:'numeric', minute:'2-digit'}) : ''].filter(Boolean).join(', ')));
     const ab = about(s.artist); if (ab) tx.append(el('p', '', ab));
     it.append(tx); slb.append(it);
   });

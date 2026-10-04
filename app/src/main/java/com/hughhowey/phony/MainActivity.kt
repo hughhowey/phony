@@ -180,7 +180,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) hideSystemBars()
+        if (hasFocus) { hideSystemBars(); dubFromClipboard() }
     }
 
     override fun onResume() {
@@ -209,12 +209,33 @@ class MainActivity : ComponentActivity() {
         handleShare(intent)
     }
 
-    /** Shazam's Share button, pointed at PHONY: the song goes on the radio. */
+    /** Shazam's Share button, pointed at PHONY: the song goes on the radio. A dubbed tape's message: the tape goes in the drawer. */
     private fun handleShare(i: Intent?) {
         if (i?.action != Intent.ACTION_SEND) return
         val text = i.getStringExtra(Intent.EXTRA_TEXT) ?: return
-        if (::radio.isInitialized) radio.fromShare(text)
+        if (text.contains("#phony:")) takeDub(text)
+        else if (::radio.isInitialized) radio.fromShare(text)
         i.action = null
+    }
+
+    // ----- a tape dubbed for you: the message waits here until the page reads it -----
+    private val dubPrefs by lazy { getSharedPreferences("dubs", MODE_PRIVATE) }
+    private fun takeDub(text: String) {
+        val key = text.substringAfter("#phony:").take(40)
+        val seen = dubPrefs.getStringSet("seen", emptySet()) ?: emptySet()
+        if (key in seen) return
+        val list = try { org.json.JSONArray(dubPrefs.getString("waiting", "[]")) } catch (e: Exception) { org.json.JSONArray() }
+        list.put(text)
+        dubPrefs.edit().putString("waiting", list.toString()).putStringSet("seen", (seen + key).toList().takeLast(50).toSet()).apply()
+        js("window.phonyDubbed && window.phonyDubbed()")
+    }
+    /** A dubbed tape's message copied from a chat: PHONY looks at the clipboard when it comes to the front. */
+    private fun dubFromClipboard() {
+        try {
+            val cm = getSystemService(android.content.ClipboardManager::class.java) ?: return
+            val text = cm.primaryClip?.getItemAt(0)?.coerceToText(this)?.toString() ?: return
+            if (text.contains("#phony:")) takeDub(text)
+        } catch (e: Exception) { }
     }
 
     private fun js(code: String) { main.post { if (::web.isInitialized) web.evaluateJavascript(code, null) } }
@@ -410,6 +431,19 @@ class MainActivity : ComponentActivity() {
         @JavascriptInterface fun mixCreate(name: String) = onMain { box.mixCreate(name) { id -> js("window.phonyMixMade && window.phonyMixMade(${org.json.JSONObject.quote(id)})") } }
         @JavascriptInterface fun mixAdd(id: String, uri: String) = box.mixAdd(id, uri)
         @JavascriptInterface fun mixRename(id: String, name: String) = box.mixRename(id, name)
+
+        // ----- dubbing a tape for someone -----
+        @JavascriptInterface fun mixPublic(id: String) = onMain { box.mixPublic(id) { ok -> js("window.phonyPublic && window.phonyPublic($ok)") } }
+        @JavascriptInterface fun shareText(text: String) = onMain {
+            val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text).putExtra(Intent.EXTRA_SUBJECT, "A tape, dubbed for you")
+            startActivity(Intent.createChooser(send, "Send the tape with…"))
+        }
+        /** Messages with a dubbed tape in them, waiting for the page: ["…#phony:…"], then forgotten. */
+        @JavascriptInterface fun takeDubs(): String {
+            val s = dubPrefs.getString("waiting", "[]") ?: "[]"
+            dubPrefs.edit().putString("waiting", "[]").apply()
+            return s
+        }
         @JavascriptInterface fun artistNotes(id: String, name: String) = notes.artist(id, name)
 
         // ----- camera photos for a mixtape's J-card -----
