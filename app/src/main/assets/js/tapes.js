@@ -461,3 +461,44 @@ function renderThumb(canvas, tape, info){
   c.setTransform(k, 0, 0, k, 0, 0); drawInternals(c, .4, 1.1, .32); c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(shell, 0, 0);
 }
 
+/* ---------- a MiniDisc: a translucent caddy with the disc turning inside ---------- */
+// drawn into a window of w×h; ang turns the disc; info names the label the way a tape's is named
+function drawMD(c, w, h, ang, info){
+  const MW = 680, MH = 720, k = Math.min(w / MW, h / MH) * .96;
+  c.save(); c.translate((w - MW * k) / 2, (h - MH * k) / 2); c.scale(k, k);
+  // the disc, under the caddy
+  const cx = 340, cy = 400, R = 286;
+  c.save(); c.beginPath(); c.roundRect(0, 0, MW, MH, 40); c.clip();
+  c.fillStyle = '#121218'; c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.fill();
+  const sheen = c.createConicGradient(ang * .35, cx, cy);
+  ['rgba(255,120,200,.55)', 'rgba(120,200,255,.55)', 'rgba(180,255,160,.5)', 'rgba(255,220,120,.5)', 'rgba(255,120,200,.55)'].forEach((col, i, a) => sheen.addColorStop(i / (a.length - 1), col));
+  c.fillStyle = sheen; c.globalAlpha = .55; c.beginPath(); c.arc(cx, cy, R, 0, TAU); c.arc(cx, cy, 96, 0, TAU, true); c.fill('evenodd'); c.globalAlpha = 1;
+  c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 1; for (let r = 110; r < R; r += 9){ c.beginPath(); c.arc(cx, cy, r, 0, TAU); c.stroke(); }
+  // the hub: a steel clamp plate with its centre hole and locating notches, turning with the disc
+  c.fillStyle = '#c9ccd1'; c.beginPath(); c.arc(cx, cy, 92, 0, TAU); c.fill();
+  const hg = c.createRadialGradient(cx - 20, cy - 24, 10, cx, cy, 92); hg.addColorStop(0, 'rgba(255,255,255,.6)'); hg.addColorStop(1, 'rgba(0,0,0,.25)'); c.fillStyle = hg; c.beginPath(); c.arc(cx, cy, 92, 0, TAU); c.fill();
+  c.fillStyle = '#17171b'; c.beginPath(); c.arc(cx, cy, 30, 0, TAU); c.fill();
+  c.save(); c.translate(cx, cy); c.rotate(ang); c.fillStyle = 'rgba(0,0,0,.35)'; for (let i = 0; i < 3; i++){ c.rotate(TAU / 3); c.beginPath(); c.arc(58, 0, 9, 0, TAU); c.fill(); } c.restore();
+  c.restore();
+  // the caddy: translucent, with a thicker frame and the shutter across the top
+  c.beginPath(); c.roundRect(0, 0, MW, MH, 40); c.fillStyle = 'rgba(150,170,200,.26)'; c.fill();
+  c.lineWidth = 14; c.strokeStyle = 'rgba(200,215,235,.55)'; c.beginPath(); c.roundRect(7, 7, MW - 14, MH - 14, 36); c.stroke();
+  c.fillStyle = 'rgba(215,225,240,.55)'; c.fillRect(0, 150, 150, 440); c.fillRect(530, 150, 150, 440);   // the solid sides of the caddy
+  const sh = c.createLinearGradient(0, 0, 0, 120); sh.addColorStop(0, '#e6e9ec'); sh.addColorStop(.45, '#b3b9c0'); sh.addColorStop(.55, '#8f969e'); sh.addColorStop(1, '#d4d8dc');
+  c.fillStyle = sh; c.beginPath(); c.roundRect(0, 0, MW, 120, [40, 40, 10, 10]); c.fill();
+  c.fillStyle = 'rgba(0,0,0,.35)'; c.fillRect(60, 46, 560, 28);   // the shutter's slot
+  c.fillStyle = '#5a6068'; c.font = `800 22px ${PRINT}`; c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText('◀ OPEN', 24, 100);
+  // the label strip, written in whatever pen the tape would have been
+  c.fillStyle = '#f4f0e6'; c.beginPath(); c.roundRect(40, 572, 600, 108, 10); c.fill();
+  c.fillStyle = '#b3202b'; c.beginPath(); c.arc(596, 626, 30, 0, TAU); c.fill();
+  c.fillStyle = '#fff'; c.font = `800 30px ${PRINT}`; c.textAlign = 'center'; c.fillText('80', 596, 627);
+  c.save(); c.beginPath(); c.rect(52, 580, 500, 92); c.clip();
+  if (info && info.strokes && info.strokes.length) drawStrokes(c, info.strokes, 60, 584, 480, 84, '#2b2b30', 4);
+  else if (info && info.pen) penWrite(c, info.pen, info.title || '', {x:62, y:642, w:470, size:54}, info.tilt || 0);
+  else if (info && info.title) hand(c, info.title, 62, 642, 470, 54, '#1d3c8f');
+  c.restore();
+  // a gleam across the lid
+  const gl = c.createLinearGradient(0, 0, MW, MH); gl.addColorStop(.3, 'rgba(255,255,255,0)'); gl.addColorStop(.42, 'rgba(255,255,255,.16)'); gl.addColorStop(.5, 'rgba(255,255,255,0)');
+  c.fillStyle = gl; c.beginPath(); c.roundRect(0, 0, MW, MH, 40); c.fill();
+  c.restore();
+}

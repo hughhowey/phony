@@ -758,3 +758,25 @@ body[data-mode=cover] #cover .window,body[data-mode=cover] #cover .lcd{touch-act
 /* light tops: the model line in the top strip is dark */
 [data-skin=radio] .model,[data-skin=hifi] .model,[data-skin=stripe] .model{color:#4a4f56;text-shadow:0 1px 0 rgba(255,255,255,.5)}
 [data-skin=sport] .face > .engrave,[data-skin=sport] .bias{display:none}
+
+/* preview · MiniDisc: champagne body, a square window with the disc in its caddy, a one-line display, a jog wheel */
+[data-skin=md]{--anodized:#d8d2c3;--anodized-lo:#2c2c2f}
+[data-skin=md] .top{border-bottom-color:#111}
+[data-skin=md] .brushed{background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.12) 0 1px,transparent 1px 3px),repeating-linear-gradient(90deg,rgba(0,0,0,.035) 0 2px,transparent 2px 6px)}
+[data-skin=md] .face > .engrave,[data-skin=md] .bias,[data-skin=md] .run{display:none}
+[data-skin=md] .face{justify-content:center;padding-bottom:16cqw;box-sizing:border-box}
+[data-skin=md] .window{width:62cqw;aspect-ratio:.944;border-radius:2cqw;box-shadow:inset 0 0 0 1.1cqw #2c2c2f,inset 0 1.6cqw 2.4cqw rgba(0,0,0,.6),0 0 0 .5cqw #8d877a,0 .6cqw 1.2cqw rgba(0,0,0,.3)}
+[data-skin=md] .window::after{box-shadow:inset 0 0 0 1.1cqw #2c2c2f}
+[data-skin=md] .engrave,[data-skin=md] .fxlabel,[data-skin=md] .jack{color:rgba(230,230,230,.7)}
+[data-skin=md] .side{background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.08) 0 1px,transparent 1px 3px),linear-gradient(90deg,#8f8a80,#d6d1c7 26%,#bfb9ae 62%,#8f8a80);border-left-color:#77726a}
+[data-skin=md] .key{border-radius:3cqw;height:12cqw}
+[data-skin=md] .key.stop{background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 .45cqw,rgba(255,255,255,.3) .45cqw .9cqw) 0 100%/100% 42% no-repeat,linear-gradient(180deg,#f3f5f6,#c3c8cc 55%,#a9aeb3);box-shadow:0 1.3cqw 0 #6c7278,0 1.8cqw 1.8cqw rgba(0,0,0,.35),inset 0 1px 0 #fff;color:#b3202b}
+[data-skin=md] .fxkey{background:linear-gradient(180deg,#5a5a5e,#3a3a3d 55%,#232325);box-shadow:0 1.1cqw 0 #050505,inset 0 1px 0 rgba(255,255,255,.2)}
+.mdlcd{left:7cqw;right:7cqw;bottom:3%;height:11cqw;display:flex;align-items:center;gap:2.2cqw;padding:0 2.6cqw;box-sizing:border-box;border-radius:1.2cqw;background:linear-gradient(180deg,#9aa593,#b3bdaa 30%,#a9b39f);box-shadow:0 0 0 1cqw #1b1c1e,0 0 0 1.4cqw #55534f,inset 0 .6cqw 1cqw rgba(0,0,0,.35);color:#1b2418;font-family:var(--f-device);font-size:2.2cqw;letter-spacing:.12em}
+.mdlcd .mdtrk,.mdlcd .mdtime{flex:none;font-family:var(--f-print);font-weight:800;font-size:3.6cqw;letter-spacing:.1em}
+.mdlcd .mdtitle{flex:1;min-width:0;overflow:hidden;white-space:nowrap;font-family:var(--f-print);font-weight:600;font-size:3.4cqw;letter-spacing:.06em;text-transform:uppercase}
+.mdlcd .mdtitle i{display:inline-block;font-style:normal;padding-left:100%;animation:marquee 12s linear infinite}
+.mdlcd .bat{flex:none;display:inline-block;width:5cqw;height:2.2cqw;border:.35cqw solid #1b2418;border-radius:.4cqw;position:relative;background:linear-gradient(90deg,#1b2418 0 70%,transparent 70%);background-clip:content-box;padding:.3cqw}
+.mdlcd .bat::after{content:"";position:absolute;right:-1cqw;top:.35cqw;width:.6cqw;height:.9cqw;background:#1b2418}
+.jog{right:3cqw;top:50%;width:6cqw;height:22cqw;margin-top:-11cqw;border-radius:3cqw;background:linear-gradient(90deg,#8f8a80,#d6d1c7 40%,#9f9a90);box-shadow:0 .6cqw 1cqw rgba(0,0,0,.4),inset 0 .2cqw 0 rgba(255,255,255,.5);display:flex;flex-direction:column;justify-content:space-evenly;padding:2cqw 0;box-sizing:border-box}
+.jog i{display:block;height:.6cqw;margin:0 1.2cqw;border-radius:.3cqw;background:rgba(0,0,0,.35)}

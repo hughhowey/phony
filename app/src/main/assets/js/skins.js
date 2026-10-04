@@ -131,6 +131,15 @@ const SKINS = [
     <div class="redline" style="left:0;right:0;top:4cqw"></div><div class="redline" style="left:0;right:0;top:4cqw;margin-top:2cqw;height:.5cqw;opacity:.8"></div>
     <div class="badge secret" style="right:4cqw;bottom:3.4cqw;transform:rotate(-2deg)">HI·FI</div>`},
 ];
+const PREVIEW_SKINS = [
+  {id:'md', name:'MiniDisc', media:'md', lcd:true, secret:'.mic', model:'PORTABLE MD RECORDER', deco:`
+    <div class="mdlcd"><span class="mdtrk">TRK 01</span><span class="mdtitle"><i class="mdtext"></i></span><span class="mdtime">00:00</span><span class="bat"></span></div>
+    <div class="jog"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="engrave" style="left:0;right:0;top:2.2%;text-align:center;color:#4a463f">MINIDISC RECORDER · ATRAC · 80</div>`, odeco:`
+    <div class="mdlcd" style="left:4cqw;right:auto;width:46cqw;bottom:3cqw;height:8cqw"><span class="mdtrk">TRK 01</span><span class="mdtitle"><i class="mdtext"></i></span><span class="mdtime">00:00</span></div>
+    <div class="scotch secret" style="right:-3cqw;top:4cqw;width:20cqw;height:5.4cqw;transform:rotate(36deg)"></div>`},
+];
+if (new URLSearchParams(location.search).get('skin') === 'md') SKINS.push(PREVIEW_SKINS[0]);
 let skinI = (() => { const q = new URLSearchParams(location.search).get('skin'); const f = SKINS.findIndex(k => k.id === q); return f >= 0 ? f : Math.max(0, SKINS.findIndex(k => k.id === store.get('skin', 'blue'))); })();
 const cover = $('#cover'), face = $('#cover .face'), deco = $('#cover .deco'), odeco = $('#inner .deckfull .deco');
 $('#cover .guts').innerHTML = GUTS;
@@ -140,6 +149,7 @@ function applySkin(){
   const k = SKINS[skinI];
   cover.dataset.skin = k.id; $('#inner').dataset.skin = k.id;
   const named = h => (h || '').replaceAll('PROPERTY OF HUGH', ownerTag());
+  $('#cover .model').textContent = k.model || 'STEREO CASSETTE PLAYER';
   const html = d => named(typeof d === 'function' ? d() : d);
   deco.innerHTML = html(k.deco); odeco.innerHTML = html(k.odeco);
   // the hidden spot: one on the closed player, one on the open one
@@ -170,6 +180,12 @@ function updateLcd(now){
   if (now - lcdT < 110) return; lcdT = now;
   const v = Math.floor(((((S.a2 - S.cOff) / TAU * .55) % 1000) + 1000) % 1000);
   if (SKINS[skinI].counter){ const t = String(v).padStart(3, '0'); $$('.skincnt').forEach(e => { if (e.textContent !== t) e.textContent = t; }); }
+  if (SKINS[skinI].lcd){
+    const tr = S.tracks[S.idx] || {}, key = (tr.title || '') + (tr.artist || '');
+    if (key !== lcdKey){ lcdKey = key; $$('.mdtext').forEach(e => { e.textContent = [tr.title, tr.artist].filter(Boolean).join('  ·  ') || 'NO DISC'; }); }
+    const trk = 'TRK ' + String(S.idx + 1).padStart(2, '0'), tm = fmt(Math.max(0, S.t)).padStart(5, '0');
+    $$('.mdtrk').forEach(e => { if (e.textContent !== trk) e.textContent = trk; }); $$('.mdtime').forEach(e => { if (e.textContent !== tm) e.textContent = tm; });
+  }
   if (SKINS[skinI].id !== 'digital') return;
   const tr = S.tracks[S.idx] || {}, key = (tr.title || '') + (tr.artist || '');
   if (key !== lcdKey){ lcdKey = key; $('#cover .lcdtitle').textContent = [tr.title, tr.artist].filter(Boolean).join('  ·  ') || 'NO TAPE'; }

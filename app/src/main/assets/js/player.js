@@ -286,6 +286,9 @@ function drawWin(o){
   if (!o.canvas.offsetParent || !o.canvas.width) return;
   const c = o.ctx, cw = o.canvas.width, ch = o.canvas.height;
   c.setTransform(1, 0, 0, 1, 0, 0);
+  if (o.mode === 'window' && typeof SKINS !== 'undefined' && SKINS[skinI].media === 'md'){
+    c.clearRect(0, 0, cw, ch); drawMD(c, cw, ch, S.a2 * .6, infoFor(S.idx)); return;
+  }
   if (o.mode === 'window'){
     c.clearRect(0, 0, cw, ch);
     c.translate(cw / 2, ch / 2 - S.ej * ch * 1.15); c.rotate(-Math.PI / 2); c.scale(o.scale, o.scale); c.translate(-W / 2, -285);
