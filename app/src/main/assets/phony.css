@@ -316,13 +316,13 @@ body[data-mode=cover] #cover .window,body[data-mode=cover] #cover .lcd{touch-act
 .fold{touch-action:pan-y}
 .foldscroll{position:absolute;inset:0;overflow:hidden;display:flex;align-items:center}
 .foldscroll::-webkit-scrollbar{display:none}
-.foldstrip{display:flex;align-items:center;padding-left:calc((100vw - 2.2 * var(--pw)) / 2);padding-right:calc(50vw - var(--pw) * .25);perspective:260vw}
+/* the card slides in from the right and back out the same way: one move, nothing to stutter */
+.foldscroll{transform:translateX(14vw);opacity:0;transition:transform .42s cubic-bezier(.2,.8,.2,1),opacity .28s;will-change:transform}
+.fold.show .foldscroll{transform:none;opacity:1}
+.foldstrip{display:flex;align-items:center;padding-left:calc((100vw - 2.2 * var(--pw)) / 2);padding-right:calc(50vw - var(--pw) * .25)}
 .fp{--i:0;position:relative;flex:none;width:var(--pw);height:var(--ph);max-height:92vh;container-type:size;overflow:hidden;scroll-snap-align:start;color:#2a241a;
-  background:linear-gradient(180deg,#f6efdf,#ebe0c6);transform-origin:0 50%;
-  transform:translateX(calc(var(--i) * -100%)) rotateY(calc(var(--f,1) * 88deg));opacity:0;
-  transition:transform .75s cubic-bezier(.3,.7,.2,1) calc(var(--i) * 90ms),opacity .3s calc(var(--i) * 90ms)}
+  background:linear-gradient(180deg,#f6efdf,#ebe0c6)}
 .fp:nth-child(even){--f:-1}
-.fold.show .fp{transform:none;opacity:1}
 .fp::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:5;background:linear-gradient(90deg,rgba(0,0,0,.16),transparent 5%,transparent 93%,rgba(255,255,255,.28)),repeating-radial-gradient(circle at 30% 20%,rgba(80,60,20,.018) 0 1px,transparent 1px 3px)}
 .fp:nth-child(even)::before{background:linear-gradient(90deg,rgba(255,255,255,.3),transparent 6%,transparent 94%,rgba(0,0,0,.14)),repeating-radial-gradient(circle at 70% 60%,rgba(80,60,20,.018) 0 1px,transparent 1px 3px)}
 .fp.fspine{width:calc(var(--pw) * .2)}
@@ -388,7 +388,7 @@ body[data-mode=cover] #cover .window,body[data-mode=cover] #cover .lcd{touch-act
 .fphoto figcaption{position:absolute;left:3cqw;right:3cqw;bottom:1.6cqw;font-family:var(--f-hand);font-size:6cqw;line-height:1;color:var(--pen);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .foldclose{position:absolute;right:3vw;top:3vh;z-index:3;font-family:var(--f-device);font-size:12px;letter-spacing:.2em;border:0;border-radius:999px;padding:10px 16px;background:rgba(251,244,228,.92);color:#2a241a;cursor:pointer;opacity:0;transition:opacity .3s .4s}
 .fold.show .foldclose{opacity:1}
-@media (prefers-reduced-motion:reduce){.fp{transition:opacity .2s}}
+@media (prefers-reduced-motion:reduce){.foldscroll{transition:opacity .2s;transform:none}}
 
 /* ================= skins: the same player, other shells ================= */
 .deco{position:absolute;inset:0;pointer-events:none;z-index:6}

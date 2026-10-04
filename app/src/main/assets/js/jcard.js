@@ -41,7 +41,7 @@ function openFold(){
 function closeFold(){
   if (!foldOpen) return; foldOpen = false;
   const wasEnd = inner.classList.contains('endstop'); inner.classList.remove('endstop');
-  fold.classList.remove('show'); setTimeout(() => { if (!foldOpen){ fold.hidden = true; foldStrip.innerHTML = ''; } }, 750);
+  fold.classList.remove('show'); setTimeout(() => { if (!foldOpen){ fold.hidden = true; foldStrip.innerHTML = ''; } }, 450);
   // folded up from the end stop: the card goes back too, and you're at the player
   if (wasEnd && slab() && S.open) cardTo(false, true);
 }

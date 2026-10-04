@@ -571,17 +571,26 @@ function buildRemoteTracks(queue){
   const at = R.queue.findIndex(q => sameName(q.title, R.cur.title));
   const upNext = at >= 0 ? R.queue.slice(at + 1) : R.queue;
   if (S.albumMode){
-    // an album: its own songs, in order, each once, the one playing marked
+    // an album: its own songs, in order, each once, the one playing marked. The list never shrinks to one
+    // song between tracks (that would throw the reels off): a title Spotify spells differently is taken
+    // to be the next song along, and while the album's songs are still on their way the list stays
     const list = albumTracks(R.cur.album, R.cur.albumArtist || R.cur.artist);
-    if (list === null || (list.length && list.findIndex(t => plainSong(t.t) === plainSong(R.cur.title)) < 0)){
-      S.tracks = [R.cur]; S.idx = 0; renderJList(); trackChanged(); return;
-    }
-    if (list.length){
-      const ci = list.findIndex(t => plainSong(t.t) === plainSong(R.cur.title));
+    const sameList = S.tracks.length >= 2 && !!S.albumFor && sameAlbum(S.albumFor, R.cur.album);
+    if (list && list.length){
+      let ci = list.findIndex(t => plainSong(t.t) === plainSong(R.cur.title));
+      if (ci < 0) ci = Math.min(sameList ? S.idx + 1 : 0, list.length - 1);
       S.tracks = list.map((t, i) => i === ci ? R.cur : {title:t.t, artist:R.cur.artist, dur:t.d, past:i < ci, albumPos:i,
         queueId:(R.queue.find(q => plainSong(q.title) === plainSong(t.t)) || {}).id});
       R.cur.albumPos = ci;
       S.idx = ci; renderJList(); trackChanged(); return;
+    }
+    if (list === null){
+      if (sameList){
+        const i = S.tracks.findIndex(t => plainSong(t.title) === plainSong(R.cur.title));
+        S.idx = i >= 0 ? i : Math.min(S.idx + 1, S.tracks.length - 1);
+        S.tracks.forEach((t, k) => { t.past = k < S.idx; }); renderJList(); trackChanged(); return;
+      }
+      S.tracks = [R.cur]; S.idx = 0; renderJList(); trackChanged(); return;
     }
   }
   // a playlist: the last few played, the one playing, what's next; each song once
