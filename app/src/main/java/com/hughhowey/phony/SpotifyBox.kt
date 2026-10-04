@@ -2,6 +2,8 @@ package com.hughhowey.phony
 
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.util.Base64
 import com.spotify.android.appremote.api.ConnectionParams
@@ -73,6 +75,13 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
     val canMix get() = signedIn && (prefs.getString("scope", "") ?: "").contains(MIX_SCOPE)
     /** Signed in with permission to read playlists and what played lately (added with the playlist drawer). */
     val canPlaylists get() = signedIn && LIST_SCOPES.split(" ").all { (prefs.getString("scope", "") ?: "").contains(it) }
+
+    /** A validated connection to the internet (a plane's captive portal doesn't count). */
+    private fun online(): Boolean {
+        val cm = ctx.getSystemService(ConnectivityManager::class.java) ?: return false
+        val c = cm.getNetworkCapabilities(cm.activeNetwork ?: return false) ?: return false
+        return c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
 
     /** The page may be reading a file while it's rewritten: write beside it, then swap, so it never sees half a file. */
     private fun File.writeWhole(text: String) {
@@ -206,6 +215,7 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
         if (!syncing.compareAndSet(false, true)) return
         if (!boxFile.exists()) { state = "loading"; onChange() }
         try {
+            try { flushMixQueue() } catch (e: Exception) { }
             val out = JSONArray()
             var next: String? = "https://api.spotify.com/v1/me/albums?limit=50"
             var pages = 0
@@ -432,13 +442,30 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
         }.start()
     }
 
-    /** Put a recorded song on the end of a mixtape playlist. */
+    /** Put a recorded song on the end of a mixtape playlist. With no signal it waits in line for the next sync. */
     fun mixAdd(id: String, uri: String) {
-        Thread {
-            val body = JSONObject().put("uris", JSONArray().put(uri)).toString()
-            try { api("POST", "https://api.spotify.com/v1/playlists/$id/items", body) }
-            catch (e: Exception) { try { api("POST", "https://api.spotify.com/v1/playlists/$id/tracks", body) } catch (e2: Exception) { } }
-        }.start()
+        Thread { if (!online() || !mixAddNow(id, uri)) queueMixAdd(id, uri) }.start()
+    }
+
+    private fun mixAddNow(id: String, uri: String): Boolean {
+        val body = JSONObject().put("uris", JSONArray().put(uri)).toString()
+        return try { api("POST", "https://api.spotify.com/v1/playlists/$id/items", body); true }
+        catch (e: Exception) { try { api("POST", "https://api.spotify.com/v1/playlists/$id/tracks", body); true } catch (e2: Exception) { false } }
+    }
+
+    @Synchronized private fun queueMixAdd(id: String, uri: String) {
+        val q = try { JSONArray(prefs.getString("mixQueue", "[]")) } catch (e: Exception) { JSONArray() }
+        q.put(JSONObject().put("id", id).put("uri", uri))
+        prefs.edit().putString("mixQueue", q.toString()).apply()
+    }
+
+    /** Songs recorded with no signal go onto their playlists now. */
+    private fun flushMixQueue() {
+        val q = synchronized(this) { try { JSONArray(prefs.getString("mixQueue", "[]")) } catch (e: Exception) { JSONArray() } }
+        if (q.length() == 0) return
+        val left = JSONArray()
+        for (i in 0 until q.length()) { val e = q.getJSONObject(i); if (!mixAddNow(e.getString("id"), e.getString("uri"))) left.put(e) }
+        synchronized(this) { prefs.edit().putString("mixQueue", left.toString()).apply() }
     }
 
     fun mixRename(id: String, name: String) {
@@ -449,9 +476,11 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
 
     /**
      * Start an album. Three ways, in order, stopping at the first that works:
-     * 1. Spotify's Web API, on this phone's Spotify (needs the play permission).
+     * 1. Spotify's Web API, on this phone's Spotify (needs the play permission, and a signal).
      * 2. Android's media controls: ask Spotify's player to play the album's link.
      * 3. Spotify's App Remote.
+     * The last two are local to the phone: with no signal they're tried at once, and Spotify
+     * plays whatever it has downloaded.
      * done() runs on the main thread; on failure the message says what each way answered.
      */
     fun play(uri: String, title: String, done: (Boolean, String) -> Unit) {
@@ -461,8 +490,8 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
         val main = android.os.Handler(android.os.Looper.getMainLooper())
         Thread {
             val notes = mutableListOf<String>()
-            var web: String? = "web: not allowed yet"
-            if (canPlay) {
+            var web: String? = if (!online()) "web: no signal" else "web: not allowed yet"
+            if (canPlay && online()) {
                 web = try { playWeb(uri); null } catch (e: Exception) { "web: " + (e.message ?: e.javaClass.simpleName) }
             }
             if (web == null) { main.post { done(true, "web") }; return@Thread }
@@ -525,7 +554,8 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
         if (!on) return
         Thread {
             while (watching) {
-                if (canPlay && remoteWatcher.enabled) {
+                if (canPlay && remoteWatcher.enabled && !online()) contextJson = ""   // no signal: no answer, rather than yesterday's
+                else if (canPlay && remoteWatcher.enabled) {
                     contextJson = try {
                         val body = api("GET", "https://api.spotify.com/v1/me/player/currently-playing", null)
                         if (body.isBlank()) "" else {
@@ -578,8 +608,19 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
     fun playAt(uri: String, index: Int, done: (Boolean, String) -> Unit) {
         val main = android.os.Handler(android.os.Looper.getMainLooper())
         Thread {
-            val r = try { playWeb(uri, index); null } catch (e: Exception) { e.message ?: e.javaClass.simpleName }
-            main.post { done(r == null, r ?: "") }
+            val r = if (!online()) "no signal" else try { playWeb(uri, index); null } catch (e: Exception) { e.message ?: e.javaClass.simpleName }
+            if (r == null) { main.post { done(true, "") }; return@Thread }
+            // no signal (or Spotify said no): App Remote can jump to a song on an album it has downloaded
+            main.post {
+                val go = { ar: SpotifyAppRemote -> ar.playerApi.skipToIndex(uri, index).setResultCallback { done(true, "app remote") }.setErrorCallback { t -> done(false, r + "; app remote: " + (t.message ?: t.javaClass.simpleName)) } }
+                remote?.takeIf { it.isConnected }?.let { go(it); return@post }
+                if (!SpotifyAppRemote.isSpotifyInstalled(ctx)) { done(false, r); return@post }
+                val params = ConnectionParams.Builder(clientId).setRedirectUri(REDIRECT).showAuthView(true).build()
+                SpotifyAppRemote.connect(ctx, params, object : Connector.ConnectionListener {
+                    override fun onConnected(ar: SpotifyAppRemote) { remote = ar; go(ar) }
+                    override fun onFailure(t: Throwable) { done(false, r + "; app remote: " + (t.message ?: t.javaClass.simpleName)) }
+                })
+            }
         }.start()
     }
 
