@@ -406,7 +406,6 @@ class MainActivity : ComponentActivity() {
 
         // ----- the real radio: a station streams through PHONY's own player -----
         @JavascriptInterface fun tuneRadio(url: String, name: String) = onMain {
-            remote.enabled = false
             radio.clearAir()
             NowLoaded.key = "radio:$url"; NowLoaded.tracks = null
             val uri = android.net.Uri.parse(url)

@@ -11,7 +11,7 @@ const S = {tape:store.get('tape', 0), userTape:store.get('tape', 0), tracks:DEMO
   motor:0, dispP:0, a1:0, a2:0, cOff:0, ejected:false, ej:0, src:{kind:'demo', title:'For the boat'}, startAt:0, open:false, mode:'cover', cmdAt:0, albumMode:false,
   r:{key:'', cur:null, hist:[], done:0, artKey:'', queue:[]}};
 S.tape = PL_TAPE; S.ctxHold = 0; S.expect = null;
-S.recOn = false; S.taping = null; S.booting = true;   // REC switch; the song on the air being taped; start-up (tapes go in without a sound)
+S.recOn = false; S.taping = null; S.booting = true; S.albumFor = '';   // REC switch; the song on the air being taped; start-up (tapes go in without a sound)
 // Whatever isn't an album plays on a written tape. A drawer playlist brings its own; anything
 // else (Liked Songs, a radio station, songs on the phone) gets one named after it, kept for next time.
 function pseudoPl(uri, name){ name = name || 'Off the radio'; return {id:'x:' + (uri || name.trim().toLowerCase()), uri:uri || '', name, pseudo:true}; }
@@ -73,7 +73,7 @@ const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAl
 $$('.sideslot').forEach(el => el.replaceWith(document.getElementById('sidetpl').content.cloneNode(true)));
 $$('.fxrow').forEach(el => el.append(document.getElementById('fxtpl').content.cloneNode(true)));
 
-let ac, master, sfxBus, hissGain, windGain, windBP, lp, noise;
+let ac, master, sfxBus, windGain, windBP, noise;
 function ensureAudio(){
   if (ac){ if (ac.state === 'suspended') ac.resume(); return; }
   ac = new (window.AudioContext || window.webkitAudioContext)();
@@ -81,12 +81,9 @@ function ensureAudio(){
   sfxBus = ac.createGain(); sfxBus.gain.value = .9; sfxBus.connect(ac.destination);
   noise = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate); const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   const loop = () => { const s = ac.createBufferSource(); s.buffer = noise; s.loop = true; s.start(); return s; };
-  const hp = ac.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3800;
-  hissGain = ac.createGain(); hissGain.gain.value = 0; loop().connect(hp).connect(hissGain).connect(master);
   windBP = ac.createBiquadFilter(); windBP.type = 'bandpass'; windBP.Q.value = 3; windBP.frequency.value = 900;
   windGain = ac.createGain(); windGain.gain.value = 0; loop().connect(windBP).connect(windGain).connect(sfxBus);
-  lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 11000;
-  try { ac.createMediaElementSource(audio).connect(lp).connect(master); audio._wired = true; } catch (e) {}
+  try { ac.createMediaElementSource(audio).connect(master); audio._wired = true; } catch (e) {}
 }
 function sfx(type){
   if (!ac) return; const t = ac.currentTime + .005;
@@ -224,7 +221,6 @@ $$('.key').forEach(el => {
   el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && !e.repeat){ e.preventDefault(); keyDown(k, el); } });
   el.addEventListener('keyup', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); keyUp(k, el); } });
 });
-function applyFx(){ if (lp) lp.frequency.setTargetAtTime(11000, ac.currentTime, .05); }
 function syncRec(){
   $$('.recsw').forEach(b => { b.classList.toggle('on', S.recOn); b.setAttribute('aria-checked', S.recOn); });
   $$('.recled').forEach(l => l.classList.toggle('on', S.recOn));
@@ -396,12 +392,12 @@ function tapeChanged(){
    the tape in the player is the one that was in when PHONY was last open. */
 function rememberTape(){
   if (!N || !isRemote()) return;
-  const t = S.mix ? {kind:'mix', id:S.mix.id} : S.albumMode ? {kind:'album', title:ALBUM.title, artist:ALBUM.artist} : S.playlist && !S.playlist.pseudo ? {kind:'playlist', id:S.playlist.id} : {kind:'plain', name:S.playlist ? S.playlist.name : ''};
+  const t = S.mix ? {kind:'mix', id:S.mix.id} : S.albumMode ? {kind:'album', title:S.albumFor || ALBUM.title, artist:ALBUM.artist} : S.playlist && !S.playlist.pseudo ? {kind:'playlist', id:S.playlist.id} : {kind:'plain', name:S.playlist ? S.playlist.name : ''};
   store.set('lastTape', t);
 }
 function restoreTape(){
   const t = store.get('lastTape', null); if (!t || !isRemote()) return;
-  if (t.kind === 'album' && t.title){ ALBUM.title = t.title; ALBUM.artist = t.artist || ''; ALBUM.key = ''; ALBUM.img = null; S.albumMode = true; S.playlist = null; S.tape = ALBUM_TAPE; }
+  if (t.kind === 'album' && t.title){ ALBUM.title = t.title; ALBUM.artist = t.artist || ''; ALBUM.key = ''; ALBUM.img = null; S.albumFor = t.title; S.albumMode = true; S.playlist = null; S.tape = ALBUM_TAPE; }
   else if (t.kind === 'playlist'){ const pl = PLAYLISTS.find(p => p.id === t.id); if (!pl) return; S.playlist = pl; S.albumMode = false; S.tape = PL_TAPE; }
   else if (t.kind === 'mix'){ const m = mixById(t.id); if (!m) return; setMix(m); S.tape = PL_TAPE; S.tracks = mixTracks(m); S.idx = Math.max(0, S.tracks.length - 1); if (!S.tracks.length) showMixTracks(0); }
   else if (t.kind === 'plain' && t.name){ S.playlist = pseudoPl('', t.name); S.albumMode = false; S.tape = PL_TAPE; }
@@ -456,11 +452,19 @@ function setPlaylist(pl){
 }
 
 /* ---------- phone bridge: local library and other apps ---------- */
-let pollAt = 0, remoteMissing = 0, ctxAt = 0;
+let pollAt = 0, remoteMissing = 0, ctxAt = 0, radioPeekAt = 0;
 const sameName = (a, b) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
+// "Rumours" and "Rumours (Deluxe Edition)" are the same album
+const sameAlbum = (a, b) => !!a && !!b && a.toLowerCase().replace(/\s*[(\[].*$/, '').trim() === b.toLowerCase().replace(/\s*[(\[].*$/, '').trim();
 function pollNative(now){
   if (!N || now - pollAt < 33) return; pollAt = now;
-  if (S.radio) return;   // the station is playing through the same player; the tape's clock waits
+  if (S.radio){   // the station plays through PHONY's own player and the tape waits; but start something in Spotify and the radio yields
+    if (isRemote() && now - radioOnAt > 3000 && now - radioPeekAt > 500){
+      radioPeekAt = now; let st = null; try { st = JSON.parse(N.getRemote() || 'null'); } catch (e) {}
+      if (st && st.playing){ if (S.recOn) recOff(true); radioOff(); }
+    }
+    return;
+  }
   if (isLocal()){
     let st; try { st = JSON.parse(N.getState()); } catch (e) { return; }
     if (st.index >= 0 && st.index < S.tracks.length && st.index !== S.idx){ S.idx = st.index; trackChanged(); }
@@ -475,7 +479,7 @@ function pollNative(now){
     if (!raw){ if (++remoteMissing === 90) toast('Nothing is playing in another app. Start Spotify, then come back.'); return; }
     remoteMissing = 0;
     let st; try { st = JSON.parse(raw); } catch (e) { return; }
-    const R = S.r, key = st.title + '|' + st.artist;
+    const R = S.r, key = st.title + '|' + st.artist; R.last = st;
     // just after a tape from the box or drawer goes in, Spotify still shows the song it was
     // playing before; that song isn't part of the new tape, so wait for Spotify to switch
     if (S.expect != null){ if (key === S.expect && now < S.ctxHold) return; S.expect = null; }
@@ -525,15 +529,24 @@ function judgeTape(st, prevAlbum, onTrack){
   // one of your mixtapes, started from Spotify (or still playing when PHONY opens)
   const mx = cx && cx.type === 'playlist' && mixByUri(cx.uri);
   if (mx){ setMix(mx); swapTo(PL_TAPE, true, true); const i = mx.songs.findIndex(s => plainSong(s.title) === plainSong(st.title)); showMixTracks(Math.max(0, i)); return; }
-  if (cx && cx.type === 'album' && sameName(cx.album, st.album)){ setAlbumMode(true); return; }
+  if (cx && cx.type === 'album' && sameName(cx.album, st.album)){ S.albumFor = st.album; setAlbumMode(true); return; }
   if (cx && cx.type && cx.type !== 'album'){ setPlaylist(ctxPlaylist(cx, st)); return; }
   if (hold) return;
-  const albumish = !!st.album && (sameName(st.queueTitle, st.album) || (onTrack && sameName(prevAlbum, st.album)) || (!!S.boxAlbum && sameName(S.boxAlbum.title, st.album)) || (S.albumMode && sameName(ALBUM.title, st.album)));
-  if (albumish){ setAlbumMode(true); return; }
-  if (!onTrack || cx) return;
+  // (S.albumFor is the album the tape went in for; ALBUM.title follows the cover art of whatever's playing)
+  const albumish = !!st.album && (sameName(st.queueTitle, st.album) || (onTrack && sameName(prevAlbum, st.album)) || (!!S.boxAlbum && sameAlbum(S.boxAlbum.title, st.album)) || (S.albumMode && sameAlbum(S.albumFor, st.album)) || queueIsAlbum(st));
+  if (albumish){ S.albumFor = st.album; setAlbumMode(true); return; }
+  // the album tape is in, but this song is from somewhere else and nothing says album: out it comes
+  if (!onTrack){ if (S.albumMode && !!st.album && !sameAlbum(S.albumFor, st.album)) setAlbumMode(false); return; }
+  if (cx) return;
   // no word from Spotify: go by the name it gives the queue
   if (st.queueTitle){ setPlaylist(PLAYLISTS.find(p => sameName(p.name, st.queueTitle)) || pseudoPl('', st.queueTitle)); return; }
   if (S.albumMode) setAlbumMode(false);
+}
+// no word from Spotify, but its up-next list is the album's own songs: that's an album playing
+function queueIsAlbum(st){
+  const q = st.queue || []; if (!st.album || q.length < 2) return false;
+  const list = albumTracks(st.album, st.albumArtist || st.artist); if (!list || list.length < 2) return false;
+  return q.every(x => list.some(t => plainSong(t.t) === plainSong(x.title)));
 }
 // the tape for a playlist, Liked Songs, an artist or a radio station
 function ctxPlaylist(cx, st){
@@ -603,7 +616,7 @@ function chooseSource(src, restoring, keepTape){
     S.tracks = tracks.map(t => ({title:t.title, artist:t.artist, dur:t.dur / 1000, album:t.album})); S.idx = 0; S.t = 0; S.dispP = 0;
     if (src.type === 'album'){
       setAlbum(src.title, src.artist, N.getAlbumArt(String(src.id)), 'local|' + src.id);
-      S.albumMode = true; S.playlist = null; swapTo(ALBUM_TAPE, true);
+      S.albumFor = src.title; S.albumMode = true; S.playlist = null; swapTo(ALBUM_TAPE, true);
     } else toPlain();
   } else if (src.kind === 'demo'){
     if (N) N.useRemote(false);
@@ -656,7 +669,7 @@ $('#files').addEventListener('change', () => {
   const list = [...files.files].filter(f => f.type.startsWith('audio') || /\.(mp3|m4a|aac|flac|wav|ogg|opus)$/i.test(f.name));
   if (!list.length) return;
   ensureAudio(); pause(); syncKeys();
-  try { if (!audio._wired){ ac.createMediaElementSource(audio).connect(lp).connect(master); audio._wired = true; } } catch (e) {}
+  try { if (!audio._wired){ ac.createMediaElementSource(audio).connect(master); audio._wired = true; } } catch (e) {}
   S.tracks = list.map(f => { const base = f.name.replace(/\.[^.]+$/, ''); const parts = base.split(' - ');
     return {title: parts.length > 1 ? parts.slice(1).join(' - ') : base, artist: parts.length > 1 ? parts[0] : '', dur:0, url:URL.createObjectURL(f)}; });
   S.tracks.forEach(tr => { const a = new Audio(); a.preload = 'metadata'; a.src = tr.url; a.onloadedmetadata = () => { tr.dur = a.duration; renderJList(); markJList(); }; });
@@ -827,14 +840,6 @@ function loop(now){
     const t = ac.currentTime;
     windGain.gain.setTargetAtTime(Math.max(0, Math.min(1, (mult - 1.6) / 9)) * .07, t, .04);
     windBP.frequency.setTargetAtTime(500 + mult * 110, t, .05);
-    hissGain.gain.setTargetAtTime((S.playing || S.taping) && !S.ejected ? .016 : 0, t, .05);
-  }
-  if (now - rateTick > (isLocal() ? 400 : 150) && S.playing && !S.cue){
-    rateTick = now;
-    const ramp = Math.min(1, .92 + (now - S.startAt) / 3000);
-    const rate = ramp * (1 + .0025 * Math.sin(now / 1000 * TAU * .55));
-    if (isLocal()) N.setSpeed(rate);
-    else if (S.src.kind === 'files') audio.playbackRate = rate;
   }
   if (S.src.kind === 'files') audio.volume = S.cue ? .35 : 1;
   runLeds.forEach(l => l.classList.toggle('on', S.motor > .5));

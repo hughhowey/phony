@@ -371,7 +371,7 @@ function loadFromBox(al){
     else toast('Turn on notification access for PHONY so it can follow Spotify.');
     S.boxAlbum = {id:al.id, title:al.title};
     ALBUM.title = al.title; ALBUM.artist = al.artist; ALBUM.img = al.img || art(al, 880, 880); ALBUM.key = 'box|' + al.id;
-    S.albumMode = true; S.playlist = null; S.ejected = true; insert(ALBUM_TAPE); renderBoxes();
+    S.albumFor = al.title; S.albumMode = true; S.playlist = null; S.ejected = true; insert(ALBUM_TAPE); renderBoxes();
     // the album's songs straight away, while Spotify switches
     if (al.tracks && al.tracks.length){ S.tracks = al.tracks.map(t => ({title:t.t, artist:al.artist, dur:t.d})); S.idx = 0; renderJList(); trackChanged(); }
     S.playing = true; S.startAt = S.cmdAt = performance.now(); setTimeout(() => sfx('latch'), 250); syncKeys();

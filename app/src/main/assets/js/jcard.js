@@ -65,7 +65,10 @@ window.phonyNotes = id => {
   if (id[0] === 'a'){ artistAbout[key] = j.about || ''; if (foldOpen && S.mix) buildMixFoldSoon(); return; }
   if (id[0] === 'n'){
     notesCache[key] = j; if (foldOpen && key === foldKey){ foldNotes = j; buildFold(foldAl); }
-    const c = S.r.cur; if (S.albumMode && isRemote() && c && albumKey({title:c.album, artist:c.albumArtist || c.artist}) === key) buildRemoteTracks(S.r.queue);
+    const c = S.r.cur; if (isRemote() && c && albumKey({title:c.album, artist:c.albumArtist || c.artist}) === key){
+      if (S.albumMode) buildRemoteTracks(S.r.queue);
+      else if (!S.mix && S.r.last && queueIsAlbum(S.r.last)){ S.albumFor = c.album; setAlbumMode(true); }   // the songs just arrived, and they're what's queued: an album
+    }
   }
   else if (foldOpen && key === foldLyrKey){ foldLyrics = j; renderWords(); }
 };

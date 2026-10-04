@@ -79,11 +79,22 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
     /** Signed in with permission to read playlists and what played lately (added with the playlist drawer). */
     val canPlaylists get() = signedIn && LIST_SCOPES.split(" ").all { (prefs.getString("scope", "") ?: "").contains(it) }
 
-    /** A validated connection to the internet (a plane's captive portal doesn't count). */
+    /** A connection to the internet: validated by Android, or (a marina's Wi‑Fi, say, that Android never
+     *  quite trusts) one Spotify has answered over in the last while. A plane's captive portal is neither. */
+    @Volatile private var lastApiOk = 0L
+    @Volatile private var lastProbe = 0L
     private fun online(): Boolean {
         val cm = ctx.getSystemService(ConnectivityManager::class.java) ?: return false
         val c = cm.getNetworkCapabilities(cm.activeNetwork ?: return false) ?: return false
-        return c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && c.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        if (!c.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return false
+        if (c.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)) return true
+        return System.currentTimeMillis() - lastApiOk < 10 * 60_000
+    }
+    /** Unvalidated network: ask Spotify something small now and then; an answer means there's a signal after all. */
+    private fun probeSignal() {
+        if (!signedIn || System.currentTimeMillis() - lastProbe < 45_000) return
+        lastProbe = System.currentTimeMillis()
+        try { api("GET", "https://api.spotify.com/v1/me/player/currently-playing", null) } catch (e: Exception) { }
     }
 
     /** The page may be reading a file while it's rewritten: write beside it, then swap, so it never sees half a file. */
@@ -569,7 +580,7 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
         if (!on) return
         Thread {
             while (watching) {
-                if (canPlay && remoteWatcher.enabled && !online()) contextJson = ""   // no signal: no answer, rather than yesterday's
+                if (canPlay && remoteWatcher.enabled && !online()) { contextJson = ""; probeSignal() }   // no signal: no answer, rather than yesterday's
                 else if (canPlay && remoteWatcher.enabled) {
                     contextJson = try {
                         val body = api("GET", "https://api.spotify.com/v1/me/player/currently-playing", null)
@@ -605,6 +616,7 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
         } else if (method == "PUT") c.setFixedLengthStreamingMode(0)
         try {
             val code = c.responseCode
+            if (code in 200..299 || code == 401 || code == 403 || code == 404) lastApiOk = System.currentTimeMillis()   // Spotify answered: there's a signal
             if (code == 401) access = null
             if (code == 204) return ""
             if (code !in 200..299) {

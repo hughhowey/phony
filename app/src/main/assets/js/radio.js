@@ -21,7 +21,7 @@ const STATIONS = [
 const FM = [87, 92, 96, 102, 108];   // the numbers printed on the dial, evenly spaced, as on a real one
 const LOCK = .4, SNAP = 1.1;          // MHz: within LOCK of a station it plays; let go within SNAP and the needle settles on it
 S.radio = null; S.radioPlaying = false; S.onAir = null; S.airLog = [];   // airLog: what the station has played since you tuned in
-let dialX = store.get('dial', .3), dialDrag = null, tuneT = 0, onAirT = 0;
+let dialX = store.get('dial', .3), dialDrag = null, tuneT = 0, onAirT = 0, radioOnAt = 0;
 
 // where a frequency sits across a dial (0..1), by the printed numbers; and back
 function fmPos(dial, f){
@@ -52,8 +52,9 @@ function syncDial(){
 }
 
 /* ---------- static: the noise between stations ---------- */
-let staticGain = null;
+let staticGain = null, staticT = 0;
 function setStatic(level){
+  clearTimeout(staticT);
   if (!ac) return;
   if (!staticGain){
     const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = .5;
@@ -61,6 +62,8 @@ function setStatic(level){
     staticGain = ac.createGain(); staticGain.gain.value = 0; src.connect(bp).connect(staticGain).connect(sfxBus);
   }
   staticGain.gain.setTargetAtTime(level, ac.currentTime, .06);
+  // between stations the hiss dies away on its own; nothing is playing
+  if (level > 0) staticT = setTimeout(() => { if (staticGain) staticGain.gain.setTargetAtTime(0, ac.currentTime, .4); }, 1500);
 }
 
 /* ---------- tuning ---------- */
@@ -68,6 +71,7 @@ function tune(st){
   if (S.radio && S.radio.url === st.url) return;
   const first = !S.radio;
   S.radio = st; S.onAir = null; S.radioPlaying = false; S.airLog = []; S.taping = null; S.t = 0;   // a new station: a fresh log; a half-taped song is lost
+  radioOnAt = performance.now();
   if (first && S.playing){ pause(); syncKeys(); }   // the tape waits
   if (N) N.tuneRadio(st.url, st.f.toFixed(1) + ' · ' + st.name);
   else demoAir(st);
@@ -75,7 +79,11 @@ function tune(st){
 }
 // static, or the radio off: nothing on the air
 function offAir(){
-  if (S.radio && N) N.radioOff();
+  if (S.radio && N){
+    N.radioOff();
+    if (isRemote()) N.useRemote(true);
+    else if (isLocal()){ try { N.loadSource(S.src.type, String(S.src.id)); } catch (e) {} N.skipTo(S.idx); N.seekTo(Math.round(S.t * 1000)); }
+  }
   S.radio = null; S.onAir = null; S.radioPlaying = false; S.airLog = []; S.taping = null; S.t = 0;
   if (S.mix) showMixTracks(Math.max(0, S.mix.songs.length - 1)); else { trackChanged(); renderJList(); }   // the tape's own list again
   if (S.recOn && typeof resumeRec === 'function') resumeRec();   // REC still down: back to the songs waiting
@@ -83,12 +91,7 @@ function offAir(){
 // back to the tape: whatever was in the player picks up where it was
 function radioOff(){
   if (!S.radio) return;
-  offAir(); setStatic(0);
-  if (N){
-    if (isRemote()) N.useRemote(true);
-    else if (isLocal()){ try { N.loadSource(S.src.type, String(S.src.id)); } catch (e) {} N.skipTo(S.idx); N.seekTo(Math.round(S.t * 1000)); }
-  }
-  syncDial();
+  offAir(); setStatic(0); syncDial();
 }
 // the needle moved: lock onto a station within reach, or hiss
 function needleAt(x, settle){
