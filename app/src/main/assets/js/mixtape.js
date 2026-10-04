@@ -424,6 +424,7 @@ function buildMixFold(m){
   const src = el('div', 'fsrc', 'WORDS FROM LRCLIB.NET'); src.id = 'fwordsrc'; src.hidden = true; wb.append(src);
 
   portsPanel(panel, front, 'mix:' + m.id);
+  endStop(panel);
   foldScroll.scrollLeft = keep;
   renderWords();
 }

@@ -20,6 +20,13 @@ function nowAlbum(){
   return {title:album, artist:tr.artist || '', img:album && sameName(album, ALBUM.title) ? ALBUM.img : null, uri:ctxAlbumUri(album), tracks:null, year:''};
 }
 const albumKey = al => ((al.title || '?') + '|' + (al.artist || '')).toLowerCase();
+// on a one-screen layout the card has one more stop past its last page: the player, dimmed, still playing
+function endStop(panel){ if (slab()) panel('fend'); }
+function atEndStop(){
+  const last = $$('#foldstrip .fp.fend')[0]; if (!last) return false;
+  return foldScroll.scrollLeft >= last.offsetLeft - (parseFloat(getComputedStyle(foldStrip).paddingLeft) || 0) - 4;
+}
+function watchEnd(){ inner.classList.toggle('endstop', foldOpen && atEndStop()); }
 function openFold(){
   if (!S.open || foldOpen || (typeof cardSettling === 'function' && cardSettling())) return;
   ensureAudio();
@@ -33,7 +40,10 @@ function openFold(){
 }
 function closeFold(){
   if (!foldOpen) return; foldOpen = false;
+  const wasEnd = inner.classList.contains('endstop'); inner.classList.remove('endstop');
   fold.classList.remove('show'); setTimeout(() => { if (!foldOpen){ fold.hidden = true; foldStrip.innerHTML = ''; } }, 750);
+  // folded up from the end stop: the card goes back too, and you're at the player
+  if (wasEnd && slab() && S.open) cardTo(false, true);
 }
 function askNotes(al){
   const key = albumKey(al);
@@ -161,6 +171,7 @@ function buildFold(al){
     if (n.band){ paras(bb, n.band); bb.append(el('div', 'fsrc', 'FROM WIKIPEDIA · CC BY-SA')); }
   }
   portsPanel(panel, front, foldKey);
+  endStop(panel);
   foldScroll.scrollLeft = keep;
   renderWords();
 }
@@ -353,7 +364,8 @@ function demoWords(){
 $('#nowtext').addEventListener('click', openFold);
 $('#nowtext').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openFold(); } });
 $('#foldclose').addEventListener('click', closeFold);
-foldScroll.addEventListener('click', e => { if (performance.now() - swipedAt < 350) return; if (e.target === foldScroll || e.target === foldStrip) closeFold(); });
+foldScroll.addEventListener('click', e => { if (performance.now() - swipedAt < 350) return; if (e.target === foldScroll || e.target === foldStrip || e.target.classList.contains('fend')) closeFold(); });
+foldScroll.addEventListener('scroll', watchEnd, {passive:true});
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && foldOpen) closeFold(); });
 
 

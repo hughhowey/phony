@@ -631,11 +631,13 @@ function layout(){
   S.mode = mode; document.body.dataset.mode = mode;
   const open = mode === 'open';
   S.open = open;   // in the pocket, S.open means the card is pulled up
-  $('#cover').hidden = open; inner.hidden = mode === 'cover';
-  inner.classList.remove('up', 'down', 'away'); inner.style.transform = '';
+  $('#cover').hidden = open; inner.hidden = false;
+  document.body.dataset.slab = open ? '' : '1';   // the two one-screen layouts share the card's machinery
+  inner.classList.remove('up', 'down', 'away', 'sliding', 'endstop'); inner.style.transform = '';
+  $('#cover').classList.remove('lift'); $('#cover .walkman').style.transform = '';
   fitCover();
   hideBox(); if (!open){ closeSheet(); if (typeof closeFold === 'function') closeFold(); }
-  if (mode === 'pocket') cardTo(false, true);
+  if (!open) cardTo(false, true);
   if (S.ejected) showBox();
   if (typeof applySkin === 'function') applySkin();   // the black shell's name tag
   requestAnimationFrame(() => { wins.forEach(sizeWin); markJList(); });
@@ -645,37 +647,51 @@ function layout(){
 // that still isn't a pocket gets black bars instead of a stretched player.
 function fitCover(){
   const c = $('#cover'), r = innerWidth / innerHeight, k = r * WALK_H;
-  if (S.mode !== 'cover' || Math.abs(k - 1) < .06){ c.style.cssText = ''; return; }
+  if (S.mode !== 'cover' || Math.abs(k - 1) < .06){ c.style.cssText = ''; inner.style.cssText = ''; return; }
   const w = k > 1 ? innerHeight / WALK_H : innerWidth, h = k > 1 ? innerHeight : innerWidth * WALK_H;
-  c.style.cssText = `width:${w}px;height:${h}px;left:${(innerWidth - w) / 2}px;top:${(innerHeight - h) / 2}px;right:auto;bottom:auto`;
+  // the card beneath the player gets the same box
+  c.style.cssText = inner.style.cssText = `width:${w}px;height:${h}px;left:${(innerWidth - w) / 2}px;top:${(innerHeight - h) / 2}px;right:auto;bottom:auto`;
 }
 // (whose player this is lives in setup.js: asked once, written on the black shell)
 
-/* ---------- the pocket: the J-card slides up over the player and back down ---------- */
-const pocketPx = () => innerWidth * WALK_H;   // how far down the card sits when it's in the pocket
+/* ---------- the card beneath the player ----------
+   On a tall phone (the pocket) the card always shows beneath the player. On the Fold's cover screen
+   the player covers it: swipe up on the window and the player lifts a fifth, and there it is. Either
+   way, tap or drag the card and it slides up over the player; drag it down by its spine or the
+   banner and it slips back (and on the cover screen the player settles down over it again). */
+const slab = () => S.mode !== 'open';
+const pocketPx = () => S.mode === 'pocket' ? innerWidth * WALK_H : inner.clientHeight * .8;   // where the card rests
 let cardDrag = null, cardMovedAt = 0;
 // a tap or drag has just moved the card: swallow the click that follows it
-const cardSettling = () => S.mode === 'pocket' && performance.now() - cardMovedAt < 450;
+const cardSettling = () => slab() && performance.now() - cardMovedAt < 450;
 function cardTo(up, instant){
-  if (S.mode !== 'pocket') return;
-  S.open = up; inner.classList.toggle('up', up); inner.classList.toggle('down', !up);
+  if (!slab()) return;
+  const cover = $('#cover'), wasUp = S.open;
+  S.open = up; inner.classList.toggle('up', up); inner.classList.remove('sliding');
   if (instant){ inner.style.transition = 'none'; void inner.offsetWidth; }
   inner.style.transform = ''; inner.style.transition = '';
+  if (S.mode === 'cover'){
+    // up: the player settles back down, unseen, behind the card. Down: the card slides off the
+    // bottom over the player, then rests behind it again
+    if (up){ cover.classList.remove('lift'); inner.classList.remove('down'); }
+    else if (wasUp && !instant){ inner.classList.add('sliding'); setTimeout(() => { if (!S.open){ inner.classList.remove('sliding'); inner.classList.add('down'); } }, 470); }
+    else inner.classList.add('down');
+  } else inner.classList.toggle('down', !up);
   if (!up){ closeSheet(); if (typeof closeFold === 'function') closeFold(); }
   markJList();
 }
 $('#inner .lid').addEventListener('pointerdown', e => {
-  if (S.mode !== 'pocket' || S.ejected || e.button > 0 || cardDrag) return;
+  if (!slab() || S.ejected || e.button > 0 || cardDrag) return;
   if (typeof foldOpen !== 'undefined' && foldOpen) return;
-  // in the pocket the card comes up from anywhere on it; once up it goes back by its spine or the
-  // banner only, so the song list still scrolls
+  // down, the card comes up from anywhere on it; up, it goes back by its spine or the banner only,
+  // so the song list still scrolls
   if (S.open && !e.target.closest('.spine, .now')) return;
   cardDrag = {id:e.pointerId, y0:e.clientY, ly:e.clientY, lt:performance.now(), v:0, from:S.open ? 0 : pocketPx(), moved:false};
 });
 addEventListener('pointermove', e => {
   const d = cardDrag; if (!d || e.pointerId !== d.id) return;
   const dy = e.clientY - d.y0;
-  if (!d.moved){ if (Math.abs(dy) < 8) return; d.moved = true; inner.style.transition = 'none'; ensureAudio(); }
+  if (!d.moved){ if (Math.abs(dy) < 8) return; d.moved = true; inner.style.transition = 'none'; if (S.mode === 'cover' && S.open) inner.classList.add('sliding'); ensureAudio(); }
   const now = performance.now(); d.v = (e.clientY - d.ly) / Math.max(1, now - d.lt); d.ly = e.clientY; d.lt = now;
   inner.style.transform = `translateY(${Math.max(0, Math.min(pocketPx(), d.from + dy))}px)`;
 });
@@ -690,6 +706,34 @@ const cardUp = e => {
 };
 addEventListener('pointerup', cardUp); addEventListener('pointercancel', cardUp);
 inner.addEventListener('click', e => { if (cardSettling()){ e.stopPropagation(); e.preventDefault(); } }, true);
+
+/* ---------- lifting the player (cover screen): swipe up on the window ---------- */
+let liftDrag = null;
+const liftPx = () => $('#cover').clientHeight * .2;
+function liftTo(on){
+  const cover = $('#cover'), wm = $('#cover .walkman');
+  wm.style.transition = ''; wm.style.transform = ''; cover.classList.toggle('lift', on);
+}
+$$('#cover .window, #cover .lcd').forEach(el => el.addEventListener('pointerdown', e => {
+  if (S.mode !== 'cover' || S.ejected || S.open || e.button > 0 || liftDrag) return;
+  const lifted = $('#cover').classList.contains('lift');
+  liftDrag = {id:e.pointerId, y0:e.clientY, ly:e.clientY, lt:performance.now(), v:0, from:lifted ? -liftPx() : 0, moved:false};
+}));
+addEventListener('pointermove', e => {
+  const d = liftDrag; if (!d || e.pointerId !== d.id) return;
+  const dy = e.clientY - d.y0, wm = $('#cover .walkman');
+  if (!d.moved){ if (Math.abs(dy) < 8) return; d.moved = true; wm.style.transition = 'none'; ensureAudio(); }
+  const now = performance.now(); d.v = (e.clientY - d.ly) / Math.max(1, now - d.lt); d.ly = e.clientY; d.lt = now;
+  wm.style.transform = `translateY(${Math.max(-liftPx(), Math.min(0, d.from + dy))}px)`;
+});
+const liftUp = e => {
+  const d = liftDrag; if (!d || e.pointerId !== d.id) return; liftDrag = null;
+  if (!d.moved) return;
+  const y = Math.max(-liftPx(), Math.min(0, d.from + e.clientY - d.y0));
+  const on = Math.abs(d.v) > .35 ? d.v < 0 : y < -liftPx() / 2;
+  sfx('tick'); liftTo(on);
+};
+addEventListener('pointerup', liftUp); addEventListener('pointercancel', liftUp);
 
 /* ---------- main loop ---------- */
 let last = performance.now(), rateTick = 0, timeTick = 0, cueSeekAt = 0;
@@ -747,7 +791,7 @@ function loop(now){
   if (S.src.kind === 'files') audio.volume = S.cue ? .35 : 1;
   runLeds.forEach(l => l.classList.toggle('on', S.motor > .5));
   face.classList.toggle('spinning', S.motor > .5); updateLcd(now);
-  if (S.open || S.mode === 'pocket'){
+  if (S.open || slab()){
     updateCounter();
     if (now - timeTick > 250){ timeTick = now; $('#nowtime').textContent = `${fmt(Math.max(0, S.t))} / ${fmt(dur(S.idx))}`; }
     if (foldOpen) syncWords();

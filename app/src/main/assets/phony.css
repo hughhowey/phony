@@ -261,17 +261,38 @@ button{-webkit-tap-highlight-color:transparent}
    the J-card is tucked in a pocket beneath it and slides up over the player when pulled. The
    tape box lives under the player, as when closed: eject drops the card out of the way. */
 body[data-mode=pocket] #cover .walkman{bottom:auto;height:calc(100cqw * 1.513);box-shadow:0 2cqw 5cqw rgba(0,0,0,.6)}
-body[data-mode=pocket] #inner{--pocket:calc(100vw * 1.513);border-radius:0;z-index:3;transform:translateY(var(--pocket));transition:transform .45s cubic-bezier(.3,.8,.3,1)}
-body[data-mode=pocket] #inner.up{--pocket:0px}
-body[data-mode=pocket] #inner.away{--pocket:110vh}
-body[data-mode=pocket] .inner::after,body[data-mode=pocket] .half:nth-child(2){display:none}
-body[data-mode=pocket] .lid{padding-top:2.2cqw}
-body[data-mode=pocket] #inner.up .lid{box-shadow:0 -2cqw 5cqw rgba(0,0,0,.5)}
+body[data-mode=pocket] #inner{--pocket:calc(100vw * 1.513)}
+/* both one-screen layouts: the card is the inner screen's left half, sliding over the player */
+body[data-slab="1"] #inner{border-radius:0;z-index:3;transform:translateY(var(--pocket));transition:transform .45s cubic-bezier(.3,.8,.3,1)}
+body[data-slab="1"] #inner.up{--pocket:0px}
+body[data-slab="1"] #inner.away{--pocket:110vh}
+body[data-slab="1"] .inner::after,body[data-slab="1"] .half:nth-child(2){display:none}
+body[data-slab="1"] .lid{padding-top:2.2cqw}
+body[data-slab="1"] #inner.up .lid{box-shadow:0 -2cqw 5cqw rgba(0,0,0,.5)}
 /* a finger on the card moves the card; the song list scrolls only once the card is up */
-body[data-mode=pocket] #inner.down .lid,body[data-mode=pocket] .lid .spine,body[data-mode=pocket] .lid .now{touch-action:none}
+body[data-slab="1"] #inner.down .lid,body[data-slab="1"] .lid .spine,body[data-slab="1"] .lid .now{touch-action:none}
 /* the fold-out J-card: one panel nearly fills the width; swipe between them */
-body[data-mode=pocket] .fold{--pw:min(86vw,calc(92vh * .64))}
-body[data-mode=pocket] .foldstrip{padding-left:7vw;padding-right:7vw}
+body[data-slab="1"] .fold{--pw:min(86vw,calc(92vh * .64))}
+body[data-slab="1"] .foldstrip{padding-left:7vw;padding-right:7vw}
+/* the last stop: nothing on it but the player beneath */
+.fp.fend{background:none;box-shadow:none}
+.fp.fend::before{display:none}
+body[data-slab="1"] #inner .lid{transition:transform .45s cubic-bezier(.3,.8,.3,1)}
+body[data-slab="1"] #inner.endstop .lid{transform:translateY(110%)}
+body[data-slab="1"] .fold.show{background:rgba(14,10,7,.62)}
+
+/* the Fold's cover screen: the card rests behind the player; swipe up on the window and the player lifts a fifth */
+body[data-mode=cover] #cover,body[data-mode=cover] .screen{background:transparent}
+body[data-mode=cover] #cover{z-index:2;pointer-events:none}
+body[data-mode=cover] #cover > *{pointer-events:auto}
+body[data-mode=cover] #cover:not(.boxopen) .boxbay.c{pointer-events:none}
+body[data-mode=cover] #inner{--pocket:80%;z-index:1}
+body[data-mode=cover] #inner.up,body[data-mode=cover] #inner.sliding{z-index:3}
+body[data-mode=cover] #inner.sliding{--pocket:102%}
+body[data-slab="1"] .inner{background:transparent}   /* at the end stop, the player shows through where the card was */
+body[data-mode=cover] #cover.lift .walkman{transform:translateY(-20%);box-shadow:0 2cqw 5cqw rgba(0,0,0,.6)}
+body[data-mode=cover] #cover.boxopen .walkman{transform:translateY(-84%)}
+body[data-mode=cover] #cover .window,body[data-mode=cover] #cover .lcd{touch-action:none}
 
 /* ---------- the fold-out J-card (tap the song banner) ---------- */
 .nowtext{cursor:pointer;position:relative}
