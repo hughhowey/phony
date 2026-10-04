@@ -627,12 +627,13 @@ function screenMode(){ const r = innerWidth / innerHeight; return r > .95 ? 'ope
 const inner = $('#inner');
 function layout(){
   const mode = screenMode();
-  if (mode === S.mode && layout.done) return; layout.done = true;
+  if (mode === S.mode && layout.done){ fitCover(); return; } layout.done = true;
   S.mode = mode; document.body.dataset.mode = mode;
   const open = mode === 'open';
   S.open = open;   // in the pocket, S.open means the card is pulled up
   $('#cover').hidden = open; inner.hidden = mode === 'cover';
   inner.classList.remove('up', 'down', 'away'); inner.style.transform = '';
+  fitCover();
   hideBox(); if (!open){ closeSheet(); if (typeof closeFold === 'function') closeFold(); }
   if (mode === 'pocket') cardTo(false, true);
   if (S.ejected) showBox();
@@ -640,6 +641,14 @@ function layout(){
   requestAnimationFrame(() => { wins.forEach(sizeWin); markJList(); });
 }
 // (boot.js hooks layout to the window's resize, once every script is in)
+// The closed player fills a screen of the Fold's shape (within 6%); a squatter or taller screen
+// that still isn't a pocket gets black bars instead of a stretched player.
+function fitCover(){
+  const c = $('#cover'), r = innerWidth / innerHeight, k = r * WALK_H;
+  if (S.mode !== 'cover' || Math.abs(k - 1) < .06){ c.style.cssText = ''; return; }
+  const w = k > 1 ? innerHeight / WALK_H : innerWidth, h = k > 1 ? innerHeight : innerWidth * WALK_H;
+  c.style.cssText = `width:${w}px;height:${h}px;left:${(innerWidth - w) / 2}px;top:${(innerHeight - h) / 2}px;right:auto;bottom:auto`;
+}
 // (whose player this is lives in setup.js: asked once, written on the black shell)
 
 /* ---------- the pocket: the J-card slides up over the player and back down ---------- */

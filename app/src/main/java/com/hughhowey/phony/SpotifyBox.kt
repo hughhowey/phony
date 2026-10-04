@@ -223,8 +223,10 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
                 val j = JSONObject(get(next)); pages++
                 val items = j.getJSONArray("items")
                 for (i in 0 until items.length()) {
-                    val item = items.getJSONObject(i)
-                    val a = item.getJSONObject("album")
+                    // one odd entry (an album Spotify has pulled, a local-files album) must not sink the whole box
+                    val item = items.optJSONObject(i) ?: continue
+                    val a = item.optJSONObject("album") ?: continue
+                    if (a.optString("id").isEmpty()) continue
                     val artists = a.optJSONArray("artists")
                     val artist = (0 until (artists?.length() ?: 0)).joinToString(", ") { k -> artists!!.getJSONObject(k).optString("name") }
                     val tracks = JSONArray()
@@ -234,7 +236,7 @@ class SpotifyBox(private val ctx: Context, private val remoteWatcher: RemoteWatc
                             tracks.put(JSONObject().put("t", t.optString("name")).put("d", t.optLong("duration_ms") / 1000))
                         }
                     }
-                    val id = a.getString("id")
+                    val id = a.optString("id")
                     out.put(JSONObject()
                         .put("id", id)
                         .put("uri", a.optString("uri", "spotify:album:$id"))

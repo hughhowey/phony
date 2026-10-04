@@ -17,6 +17,15 @@ readRadio(); ensureBlank();
 if (!N) window.phonyTestSeek = t => { S.t = t < 0 ? dur(S.idx) + t : t; };
 if (N) try { radioNoticeId = JSON.parse(N.radioNotice()).id; } catch (e) {}
 requestAnimationFrame(loop);
+// the phone's back button: fold up whatever's open, innermost first; false means nothing was
+window.phonyBack = () => {
+  const card = $('.setup, .namer, .caseview'); if (card){ card.remove(); return true; }
+  if (foldOpen){ closeFold(); return true; }
+  if (!sheet.hidden){ closeSheet(); return true; }
+  if (S.ejected && boxVisible()){ putBack(); return true; }
+  if (S.mode === 'pocket' && S.open){ cardTo(false); return true; }
+  return false;
+};
 // the first time: whose player is this (the black shell's tag)
 if ((N && !owner()) || new URLSearchParams(location.search).get('setup') === 'name') setTimeout(askOwner, 600);
 if (new URLSearchParams(location.search).get('setup') === 'spotify') setTimeout(openSpotifySetup, 600);

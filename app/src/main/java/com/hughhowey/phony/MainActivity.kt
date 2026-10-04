@@ -22,6 +22,7 @@ import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -126,11 +127,22 @@ class MainActivity : ComponentActivity() {
             webViewClient = object : WebViewClient() {
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
                     assets.shouldInterceptRequest(request.url)
+                // the page is the player and nothing else: a link of any kind never navigates it away
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
+                    request.url.host != "appassets.androidplatform.net"
             }
             addJavascriptInterface(Bridge(), "PhonyNative")
         }
         setContentView(web)
         hideSystemBars()
+        // the back button folds up whatever's open on the page (J-card, box, a card); with nothing open it leaves as usual
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                web.evaluateJavascript("window.phonyBack ? window.phonyBack() : false") { r ->
+                    if (r != "true") { isEnabled = false; onBackPressedDispatcher.onBackPressed(); isEnabled = true }
+                }
+            }
+        })
         web.loadUrl("https://appassets.androidplatform.net/assets/index.html")
 
         val token = SessionToken(this, ComponentName(this, PlaybackService::class.java))
