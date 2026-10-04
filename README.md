@@ -58,6 +58,10 @@ When it's full, press **■** and write its name on the spine with the pencil (*
 
 A mixtape's J-card has your writing on the spine, the songs with where and when you heard each one, sleeve notes pairing each song with the photo you took nearest that moment and a few lines about the artist, the words, and its ports of call. Photos stay on the phone; the card asks once.
 
+## No signal
+
+Out of signal (a plane, a passage), PHONY still follows and controls whatever Spotify is playing, since that goes through the phone, not the internet. A tape from the box or the drawer plays if Spotify has that album or playlist downloaded; so does a song picked on the J-card. The box, the drawer and every J-card PHONY has already fetched are kept on the phone. A song recorded off the radio with no signal goes onto its Spotify playlist the next time there is one.
+
 ## Sides
 
 An album plays like a cassette: Side A is the first half of the songs. When Side A runs out the tape stops; press **■** to flip it and **▶** to play Side B. The silver digital shell has auto reverse and carries on by itself.
